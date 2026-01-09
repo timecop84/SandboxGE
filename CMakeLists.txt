@@ -8,10 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT DEFINED SANDBOX_GE_GLFW_TARGET)
     set(SANDBOX_GE_GLFW_TARGET "" CACHE STRING "Existing GLFW target to link against (leave empty to auto-detect).")
 endif()
-if(NOT DEFINED SANDBOX_GE_CLOTH_INCLUDE_DIRS)
-    set(SANDBOX_GE_CLOTH_INCLUDE_DIRS "" CACHE STRING "Optional include paths for ClothAPI integration.")
+if(NOT DEFINED SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "" CACHE STRING "Optional include paths for external math/helpers (e.g., Vector/Matrix).")
 endif()
-
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
@@ -41,10 +40,8 @@ target_include_directories(SandboxGE
         ${SANDBOX_GE_GLAD_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
 )
-
-if(SANDBOX_GE_CLOTH_INCLUDE_DIRS)
-    target_compile_definitions(SandboxGE PUBLIC SANDBOX_GE_WITH_CLOTH=1)
-    target_include_directories(SandboxGE PUBLIC ${SANDBOX_GE_CLOTH_INCLUDE_DIRS})
+if(SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    target_include_directories(SandboxGE PUBLIC ${SANDBOX_GE_EXTRA_INCLUDE_DIRS})
 endif()
 
 set(_SANDBOX_GE_GLFW_TARGET ${SANDBOX_GE_GLFW_TARGET})
