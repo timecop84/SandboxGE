@@ -515,6 +515,34 @@ void Engine::renderScene(Camera* camera,
             prog->setUniform("aoStrength", params.aoStrength);
             prog->setUniform("aoGroundColor", glm::vec3(params.aoGroundColor[0], params.aoGroundColor[1], params.aoGroundColor[2]));
 
+            // Optional extra light array (SilkPBR supports this; others will ignore unknown uniforms)
+            {
+                const int MAX_EXTRA = 8;
+                int numLights = static_cast<int>(params.lights.size());
+                if (numLights > MAX_EXTRA) numLights = MAX_EXTRA;
+                glm::vec3 lightPositions[MAX_EXTRA]{};
+                glm::vec3 lightColors[MAX_EXTRA]{};
+                float lightIntensitiesExtra[MAX_EXTRA]{};
+                for (int li = 0; li < numLights; ++li) {
+                    lightPositions[li] = glm::vec3(params.lights[li].position[0],
+                                                   params.lights[li].position[1],
+                                                   params.lights[li].position[2]);
+                    lightColors[li] = glm::vec3(params.lights[li].diffuse[0],
+                                                params.lights[li].diffuse[1],
+                                                params.lights[li].diffuse[2]);
+                    lightIntensitiesExtra[li] = params.lights[li].intensity;
+                }
+
+                GLint numLightsLoc = glGetUniformLocation(programId, "numLights");
+                GLint positionsLoc = glGetUniformLocation(programId, "lightPositions");
+                GLint colorsLoc = glGetUniformLocation(programId, "lightColors");
+                GLint intensityLoc = glGetUniformLocation(programId, "lightIntensitiesExtra");
+                if (numLightsLoc >= 0) glUniform1i(numLightsLoc, numLights);
+                if (positionsLoc >= 0) glUniform3fv(positionsLoc, numLights, glm::value_ptr(lightPositions[0]));
+                if (colorsLoc >= 0) glUniform3fv(colorsLoc, numLights, glm::value_ptr(lightColors[0]));
+                if (intensityLoc >= 0) glUniform1fv(intensityLoc, numLights, lightIntensitiesExtra);
+            }
+
             glm::mat4 model = glm::mat4(1.0f);
             glm::mat4 projection = camera->getProjectionMatrix();
             prog->setUniform("MVP", projection * view * model);

@@ -18,6 +18,13 @@ uniform mat4 lightSpaceMatrices[MAX_SHADOW_LIGHTS];
 uniform float lightIntensities[MAX_SHADOW_LIGHTS];
 uniform int numShadowLights;
 
+// Extra light array (no shadows)
+const int MAX_LIGHTS = 8;
+uniform int numLights;
+uniform vec3 lightPositions[MAX_LIGHTS];
+uniform vec3 lightColors[MAX_LIGHTS];
+uniform float lightIntensitiesExtra[MAX_LIGHTS];
+
 // Shadow parameters
 uniform sampler2DShadow shadowMap;
 uniform float shadowBias;
@@ -227,6 +234,24 @@ vec4 pointLight()
 return ambient + diffuse + specular;
 }
 
+vec3 extraLights(vec3 N, vec3 V)
+{
+    vec3 accum = vec3(0.0);
+    int count = numLights;
+    if (count > MAX_LIGHTS) count = MAX_LIGHTS;
+    for (int i = 0; i < count; ++i) {
+        vec3 L = lightPositions[i] - worldPos;
+        float dist = length(L);
+        if (dist > 0.0001) L /= dist;
+        float diff = max(dot(N, L), 0.0);
+        vec3 H = normalize(L + V);
+        float spec = pow(max(dot(N, H), 0.0), material.shininess);
+        float intensity = lightIntensitiesExtra[i];
+        vec3 color = lightColors[i];
+        accum += (material.diffuse.rgb * color * diff + material.specular.rgb * color * spec) * intensity;
+    }
+    return accum;
+}
 
 void main ()
 {
@@ -242,6 +267,7 @@ void main ()
     // Apply checker pattern
     vec3 checkerMod = checkerPattern(fragUV, checkerScale, checkerColor1, checkerColor2);
     vec4 baseColor = pointLight();
+    vec3 extra = extraLights(N, V);
     
     // Apply AO and shadow - affects ambient and diffuse, not specular
     vec3 aoTint = mix(aoGroundColor, vec3(1.0), ao);
@@ -249,7 +275,7 @@ void main ()
     // Shadow affects diffuse and specular, not ambient
     vec3 ambient = material.ambient.rgb * light.ambient.rgb;
     vec3 litColor = baseColor.rgb - ambient; // Remove ambient to apply shadow only to lit parts
-    vec3 finalColor = (ambient + litColor * shadow) * checkerMod * aoTint;
+    vec3 finalColor = (ambient + litColor * shadow + extra) * checkerMod * aoTint;
     
     // Gamma correction
     finalColor = pow(clamp(finalColor, 0.0, 10.0), vec3(1.0 / 2.2));

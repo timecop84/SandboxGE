@@ -121,6 +121,33 @@ void setupLighting(Camera* camera, const gfx::RenderSettings& params) {
             if (cache.shadowMaps[s] != -1) glUniform1i(cache.shadowMaps[s], SHADOW_TEX_START + s);
         }
     }
+
+    // Extra light array (Phong shader has these uniforms; others will ignore)
+    {
+        const int MAX_LIGHTS = 8;
+        int numLights = static_cast<int>(std::min<size_t>(params.lights.size(), MAX_LIGHTS));
+        glm::vec3 positions[MAX_LIGHTS]{};
+        glm::vec3 colors[MAX_LIGHTS]{};
+        float intensities[MAX_LIGHTS]{};
+        for (int i = 0; i < numLights; ++i) {
+            positions[i] = glm::vec3(params.lights[i].position[0],
+                                     params.lights[i].position[1],
+                                     params.lights[i].position[2]);
+            colors[i] = glm::vec3(params.lights[i].diffuse[0],
+                                  params.lights[i].diffuse[1],
+                                  params.lights[i].diffuse[2]);
+            intensities[i] = params.lights[i].intensity;
+        }
+
+        GLint numLoc = glGetUniformLocation(phong->getProgramId(), "numLights");
+        GLint posLoc = glGetUniformLocation(phong->getProgramId(), "lightPositions");
+        GLint colLoc = glGetUniformLocation(phong->getProgramId(), "lightColors");
+        GLint intenLoc = glGetUniformLocation(phong->getProgramId(), "lightIntensitiesExtra");
+        if (numLoc >= 0) glUniform1i(numLoc, numLights);
+        if (posLoc >= 0 && numLights > 0) glUniform3fv(posLoc, numLights, glm::value_ptr(positions[0]));
+        if (colLoc >= 0 && numLights > 0) glUniform3fv(colLoc, numLights, glm::value_ptr(colors[0]));
+        if (intenLoc >= 0 && numLights > 0) glUniform1fv(intenLoc, numLights, intensities);
+    }
 }
 
 void loadMatricesToShader(const TransformStack& stack, Camera* camera) {
