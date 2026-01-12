@@ -42,7 +42,12 @@ namespace gfx {
 bool Engine::initialize(int width, int height) {
     Renderer::initGL();
     SSAO::init(width, height);
-    Shadow::init(4096);
+    int shadowSize = 4096;
+    if (const char* env = std::getenv("CS_SHADOW_SIZE")) {
+        int v = std::atoi(env);
+        if (v >= 512 && v <= 8192) shadowSize = v;
+    }
+    Shadow::init(shadowSize);
     return true;
 }
 
@@ -54,13 +59,13 @@ void Engine::setShaderRoot(const std::string& rootDir) {
     ShaderPath::setRoot(rootDir);
 }
 
-void Engine::ensureClothMeshes(size_t count, std::vector<glm::vec3>& clothColors) {
-    while (m_clothMeshes.size() < count) {
+void Engine::ensurePrimaryMeshes(size_t count, std::vector<glm::vec3>& clothColors) {
+    while (m_primaryMeshes.size() < count) {
         GpuMesh mesh{};
         glGenVertexArrays(1, &mesh.VAO);
         glGenBuffers(1, &mesh.VBO);
         glGenBuffers(1, &mesh.EBO);
-        m_clothMeshes.push_back(mesh);
+        m_primaryMeshes.push_back(mesh);
         clothColors.push_back(generateRandomClothColor());
     }
 }
@@ -92,56 +97,51 @@ void Engine::ensureGenericMeshes(size_t count) {
     }
 }
 
-void Engine::syncClothMeshes(cloth::Scene* scene,
-                             const std::vector<cloth::ClothHandle>& cloths,
-                             std::vector<glm::vec3>& clothColors) {
-    if (!scene) return;
-
-    // Remove extra meshes/colors
-    while (m_clothMeshes.size() > cloths.size()) {
-        auto& mesh = m_clothMeshes.back();
+void Engine::syncPrimaryMeshes(const std::vector<MeshSource>& meshes,
+                               std::vector<glm::vec3>& meshColors) {
+    // Trim extras
+    while (m_primaryMeshes.size() > meshes.size()) {
+        auto& mesh = m_primaryMeshes.back();
         if (mesh.VAO) {
             glDeleteVertexArrays(1, &mesh.VAO);
             glDeleteBuffers(1, &mesh.VBO);
             glDeleteBuffers(1, &mesh.EBO);
         }
-        m_clothMeshes.pop_back();
+        m_primaryMeshes.pop_back();
     }
-    while (clothColors.size() > cloths.size()) clothColors.pop_back();
+    while (meshColors.size() > meshes.size()) meshColors.pop_back();
 
-    ensureClothMeshes(cloths.size(), clothColors);
+    ensurePrimaryMeshes(meshes.size(), meshColors);
 
     static std::vector<float> vertexData;
 
-    for (size_t i = 0; i < cloths.size(); ++i) {
-        cloth::ClothHandle clothHandle = cloths[i];
-        if (clothHandle == cloth::INVALID_CLOTH) continue;
+    for (size_t i = 0; i < meshes.size(); ++i) {
+        const MeshSource& src = meshes[i];
+        GpuMesh& mesh = m_primaryMeshes[i];
 
-        GpuMesh& mesh = m_clothMeshes[i];
+        if (!src.positions || !src.normals || src.vertexCount <= 0) {
+            mesh.vertexCount = 0;
+            mesh.triangleCount = 0;
+            continue;
+        }
 
-        const float* positions = cloth::getPositions(scene, clothHandle);
-        const float* normals = cloth::getNormals(scene, clothHandle);
-        const float* uvs = cloth::getUVs(scene, clothHandle);
-        int vertexCount = cloth::getVertexCount(scene, clothHandle);
-        if (!positions || !normals || vertexCount == 0) continue;
+        mesh.vertexCount = src.vertexCount;
+        mesh.triangleCount = src.indexCount / 3;
 
-        mesh.vertexCount = vertexCount;
-        mesh.triangleCount = cloth::getTriangleCount(scene, clothHandle);
-
-        vertexData.assign(vertexCount * 8, 0.0f);
-        for (int j = 0; j < vertexCount; j++) {
+        vertexData.assign(src.vertexCount * 8, 0.0f);
+        for (int j = 0; j < src.vertexCount; j++) {
             int vi = j * 8;
             int pi = j * 3;
             int ui = j * 2;
 
-            vertexData[vi + 0] = positions[pi + 0];
-            vertexData[vi + 1] = positions[pi + 1];
-            vertexData[vi + 2] = positions[pi + 2];
-            vertexData[vi + 3] = normals[pi + 0];
-            vertexData[vi + 4] = normals[pi + 1];
-            vertexData[vi + 5] = normals[pi + 2];
-            vertexData[vi + 6] = uvs ? uvs[ui + 0] : 0.0f;
-            vertexData[vi + 7] = uvs ? uvs[ui + 1] : 0.0f;
+            vertexData[vi + 0] = src.positions[pi + 0];
+            vertexData[vi + 1] = src.positions[pi + 1];
+            vertexData[vi + 2] = src.positions[pi + 2];
+            vertexData[vi + 3] = src.normals[pi + 0];
+            vertexData[vi + 4] = src.normals[pi + 1];
+            vertexData[vi + 5] = src.normals[pi + 2];
+            vertexData[vi + 6] = src.uvs ? src.uvs[ui + 0] : 0.0f;
+            vertexData[vi + 7] = src.uvs ? src.uvs[ui + 1] : 0.0f;
         }
 
         glBindVertexArray(mesh.VAO);
@@ -162,16 +162,18 @@ void Engine::syncClothMeshes(cloth::Scene* scene,
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        const uint32_t* triangles = cloth::getTriangles(scene, clothHandle);
-        if (triangles) {
+        if (src.indices && src.indexCount > 0) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.EBO);
-            size_t requiredIndexBytes = mesh.triangleCount * 3 * sizeof(uint32_t);
+            size_t requiredIndexBytes = static_cast<size_t>(src.indexCount) * sizeof(uint32_t);
             if (requiredIndexBytes > mesh.indexCapacityBytes) {
-                glBufferData(GL_ELEMENT_ARRAY_BUFFER, requiredIndexBytes, triangles, GL_STATIC_DRAW);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, requiredIndexBytes, src.indices, GL_STATIC_DRAW);
                 mesh.indexCapacityBytes = requiredIndexBytes;
             } else {
-                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, requiredIndexBytes, triangles);
+                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, requiredIndexBytes, src.indices);
             }
+            mesh.triangleCount = src.indexCount / 3;
+        } else {
+            mesh.triangleCount = 0;
         }
 
         glBindVertexArray(0);
@@ -244,69 +246,11 @@ void Engine::syncMeshes(const std::vector<MeshSource>& meshes) {
     }
 }
 
-void Engine::renderParticles(Camera* camera,
-                             Renderer::ClothRenderData& renderData,
-                             cloth::Scene* scene,
-                             const std::vector<cloth::ClothHandle>& cloths,
-                             const gfx::RenderSettings& settings) {
-    if (!scene || cloths.empty()) return;
-
-    ShaderLib* shader = ShaderLib::instance();
-    ShaderLib::ProgramWrapper* phong = (*shader)["Phong"];
-    if (!phong) return;
-    phong->use();
-
-    Renderer::setupLighting(camera, settings);
-
-    phong->setUniform("material.ambient", glm::vec4(0.1f, 0.3f, 0.1f, 1.0f));
-    phong->setUniform("material.diffuse", glm::vec4(0.3f, 1.0f, 0.3f, 1.0f));
-    phong->setUniform("material.specular", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-    phong->setUniform("material.shininess", 32.0f);
-
-    if (!renderData.particleSphere) {
-        renderData.particleSphere = FlockingGraphics::GeometryFactory::instance().createSphere(0.3f, 8);
-    }
-
-    if (settings.pointWireframe) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    } else {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    }
-
-    glm::mat4 view = camera->getViewMatrix();
-    glm::mat4 projection = camera->getProjectionMatrix();
-
-    for (cloth::ClothHandle clothHandle : cloths) {
-        int vertexCount = cloth::getVertexCount(scene, clothHandle);
-        const float* positions = cloth::getPositions(scene, clothHandle);
-        if (!positions || vertexCount <= 0) continue;
-
-        for (int i = 0; i < vertexCount; ++i) {
-            float x = positions[i * 3 + 0];
-            float y = positions[i * 3 + 1];
-            float z = positions[i * 3 + 2];
-
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
-            glm::mat4 MV = view * model;
-            phong->setUniform("MVP", projection * MV);
-            phong->setUniform("M", model);
-            phong->setUniform("MV", MV);
-            phong->setUniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(MV))));
-
-            renderData.particleSphere->render();
-        }
-    }
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-}
-
 void Engine::renderScene(Camera* camera,
                          Floor* floor,
                          SphereObstacle* sphere,
                          Renderer::ClothRenderData& renderData,
-                         cloth::Scene* clothScene,
-                         const std::vector<cloth::ClothHandle>& cloths,
-                         const std::vector<glm::vec3>& clothColors,
+                         const std::vector<glm::vec3>& primaryColors,
                          const gfx::RenderSettings& params,
                          TransformStack& transformStack) {
     // Shadow pass
@@ -335,10 +279,10 @@ void Engine::renderScene(Camera* camera,
             Shadow::beginShadowPass(shadowIndex, &shadowLight, sceneCenter, sceneRadius);
 
             // Cloth casters
-            if (!m_clothMeshes.empty() && params.clothVisibility) {
+            if (!m_primaryMeshes.empty() && params.clothVisibility) {
                 glm::mat4 model = glm::mat4(1.0f);
                 Shadow::setModelMatrix(model);
-                drawShadowMeshes(m_clothMeshes);
+                drawShadowMeshes(m_primaryMeshes);
             }
 
             // Generic mesh casters
@@ -372,10 +316,10 @@ void Engine::renderScene(Camera* camera,
             Shadow::beginShadowPass(shadowIndex, &shadowLight, sceneCenter, sceneRadius);
 
             // Cloth casters
-            if (!m_clothMeshes.empty() && params.clothVisibility) {
+            if (!m_primaryMeshes.empty() && params.clothVisibility) {
                 glm::mat4 model = glm::mat4(1.0f);
                 Shadow::setModelMatrix(model);
-                drawShadowMeshes(m_clothMeshes);
+                drawShadowMeshes(m_primaryMeshes);
             }
 
             if (!m_genericMeshes.empty() && params.customMeshVisibility) {
@@ -477,8 +421,8 @@ void Engine::renderScene(Camera* camera,
         }
     }
 
-    // Cloths
-    if (!cloths.empty() || (!m_genericMeshes.empty() && params.customMeshVisibility)) {
+    // Primary meshes (e.g., cloth) and auxiliary meshes
+    if (!m_primaryMeshes.empty() || (!m_genericMeshes.empty() && params.customMeshVisibility)) {
         ShaderLib* shader = ShaderLib::instance();
         // Select shader: Phong, Silk, or SilkPBR
         std::string shaderName = "Phong";
@@ -504,7 +448,7 @@ void Engine::renderScene(Camera* camera,
             glUniform1i(glGetUniformLocation(programId, "shadowEnabled"), Shadow::isEnabled() ? 1 : 0);
             glUniform1f(glGetUniformLocation(programId, "shadowBias"), params.shadowBias);
             glUniform1f(glGetUniformLocation(programId, "shadowSoftness"), params.shadowSoftness);
-            glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), 4096.0f);
+            glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), static_cast<float>(Shadow::getMapSize()));
             glUniform1f(glGetUniformLocation(programId, "shadowStrength"), 1.5f);
             glUniformMatrix4fv(glGetUniformLocation(programId, "lightSpaceMatrix"), 1, GL_FALSE,
                                glm::value_ptr(Shadow::getLightSpaceMatrix(0)));
@@ -576,6 +520,34 @@ void Engine::renderScene(Camera* camera,
             prog->setUniform("aoStrength", params.aoStrength);
             prog->setUniform("aoGroundColor", glm::vec3(params.aoGroundColor[0], params.aoGroundColor[1], params.aoGroundColor[2]));
 
+            // Optional extra light array (SilkPBR supports this; others will ignore unknown uniforms)
+            {
+                const int MAX_EXTRA = 8;
+                int numLights = static_cast<int>(params.lights.size());
+                if (numLights > MAX_EXTRA) numLights = MAX_EXTRA;
+                glm::vec3 lightPositions[MAX_EXTRA]{};
+                glm::vec3 lightColors[MAX_EXTRA]{};
+                float lightIntensitiesExtra[MAX_EXTRA]{};
+                for (int li = 0; li < numLights; ++li) {
+                    lightPositions[li] = glm::vec3(params.lights[li].position[0],
+                                                   params.lights[li].position[1],
+                                                   params.lights[li].position[2]);
+                    lightColors[li] = glm::vec3(params.lights[li].diffuse[0],
+                                                params.lights[li].diffuse[1],
+                                                params.lights[li].diffuse[2]);
+                    lightIntensitiesExtra[li] = params.lights[li].intensity;
+                }
+
+                GLint numLightsLoc = glGetUniformLocation(programId, "numLights");
+                GLint positionsLoc = glGetUniformLocation(programId, "lightPositions");
+                GLint colorsLoc = glGetUniformLocation(programId, "lightColors");
+                GLint intensityLoc = glGetUniformLocation(programId, "lightIntensitiesExtra");
+                if (numLightsLoc >= 0) glUniform1i(numLightsLoc, numLights);
+                if (positionsLoc >= 0) glUniform3fv(positionsLoc, numLights, glm::value_ptr(lightPositions[0]));
+                if (colorsLoc >= 0) glUniform3fv(colorsLoc, numLights, glm::value_ptr(lightColors[0]));
+                if (intensityLoc >= 0) glUniform1fv(intensityLoc, numLights, lightIntensitiesExtra);
+            }
+
             glm::mat4 model = glm::mat4(1.0f);
             glm::mat4 projection = camera->getProjectionMatrix();
             prog->setUniform("MVP", projection * view * model);
@@ -601,11 +573,11 @@ void Engine::renderScene(Camera* camera,
                 }
             };
 
-            if (params.clothVisibility && !m_clothMeshes.empty()) {
+            if (params.clothVisibility && !m_primaryMeshes.empty()) {
                 if (params.clothWireframe) {
                     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
                 }
-                renderMeshList(m_clothMeshes, clothColors);
+                renderMeshList(m_primaryMeshes, primaryColors);
                 if (params.clothWireframe) {
                     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
                 }
@@ -623,23 +595,19 @@ void Engine::renderScene(Camera* camera,
         }
     }
 
-    if (params.pointVisibility) {
-        renderParticles(camera, renderData, clothScene, cloths, params);
-    }
-
     SSAO::endScenePass();
     SSAO::renderComposite(camera);
 }
 
 void Engine::cleanup(Renderer::ClothRenderData& renderData) {
-    for (auto& mesh : m_clothMeshes) {
+    for (auto& mesh : m_primaryMeshes) {
         if (mesh.VAO) {
             glDeleteVertexArrays(1, &mesh.VAO);
             glDeleteBuffers(1, &mesh.VBO);
             glDeleteBuffers(1, &mesh.EBO);
         }
     }
-    m_clothMeshes.clear();
+    m_primaryMeshes.clear();
     for (auto& mesh : m_genericMeshes) {
         if (mesh.VAO) {
             glDeleteVertexArrays(1, &mesh.VAO);

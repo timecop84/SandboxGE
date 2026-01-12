@@ -5,13 +5,32 @@ project(SandboxGE LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Auto-build GLFW if available in sibling cloth_solver project
+set(_GLFW_SOURCE_DIR "")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/glfw/CMakeLists.txt")
+    set(_GLFW_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/glfw")
+endif()
+# Only add GLFW subdirectory if the target doesn't already exist
+if(_GLFW_SOURCE_DIR AND NOT TARGET glfw)
+    # Build GLFW from source
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${_GLFW_SOURCE_DIR}" glfw)
+endif()
+
 if(NOT DEFINED SANDBOX_GE_GLFW_TARGET)
     set(SANDBOX_GE_GLFW_TARGET "" CACHE STRING "Existing GLFW target to link against (leave empty to auto-detect).")
 endif()
-if(NOT DEFINED SANDBOX_GE_CLOTH_INCLUDE_DIRS)
-    set(SANDBOX_GE_CLOTH_INCLUDE_DIRS "" CACHE STRING "Optional include paths for ClothAPI integration.")
+if(NOT DEFINED SANDBOX_GE_GLFW_LIB)
+    set(SANDBOX_GE_GLFW_LIB "" CACHE FILEPATH "Optional fallback: path to glfw3 library if no target is available.")
 endif()
-
+if(NOT DEFINED SANDBOX_GE_GLFW_INCLUDE_DIR)
+    set(SANDBOX_GE_GLFW_INCLUDE_DIR "" CACHE PATH "Optional fallback: include directory for GLFW headers when using SANDBOX_GE_GLFW_LIB.")
+endif()
+if(NOT DEFINED SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "" CACHE STRING "Optional include paths for external math/helpers (e.g., Vector/Matrix).")
+endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
@@ -41,32 +60,104 @@ target_include_directories(SandboxGE
         ${SANDBOX_GE_GLAD_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
 )
-
-if(SANDBOX_GE_CLOTH_INCLUDE_DIRS)
-    target_compile_definitions(SandboxGE PUBLIC SANDBOX_GE_WITH_CLOTH=1)
-    target_include_directories(SandboxGE PUBLIC ${SANDBOX_GE_CLOTH_INCLUDE_DIRS})
+if(SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    target_include_directories(SandboxGE PUBLIC ${SANDBOX_GE_EXTRA_INCLUDE_DIRS})
 endif()
 
 set(_SANDBOX_GE_GLFW_TARGET ${SANDBOX_GE_GLFW_TARGET})
 if(NOT _SANDBOX_GE_GLFW_TARGET)
+    # First check if we just built GLFW above
     if(TARGET glfw)
         set(_SANDBOX_GE_GLFW_TARGET glfw)
     elseif(TARGET glfw3)
         set(_SANDBOX_GE_GLFW_TARGET glfw3)
-    elseif(TARGET glfw3::glfw)
-        set(_SANDBOX_GE_GLFW_TARGET glfw3::glfw)
-    else()
-        find_package(glfw3 QUIET CONFIG)
+    endif()
+    # Fall back to imported target checks
+    if(NOT _SANDBOX_GE_GLFW_TARGET)
         if(TARGET glfw)
             set(_SANDBOX_GE_GLFW_TARGET glfw)
+        elseif(TARGET glfw3)
+            set(_SANDBOX_GE_GLFW_TARGET glfw3)
         elseif(TARGET glfw3::glfw)
             set(_SANDBOX_GE_GLFW_TARGET glfw3::glfw)
+        else()
+            find_package(glfw3 QUIET CONFIG)
+            if(TARGET glfw)
+                set(_SANDBOX_GE_GLFW_TARGET glfw)
+            elseif(TARGET glfw3::glfw)
+                set(_SANDBOX_GE_GLFW_TARGET glfw3::glfw)
+            endif()
         endif()
     endif()
 endif()
 
-if(NOT _SANDBOX_GE_GLFW_TARGET)
-    message(FATAL_ERROR "GLFW target not found. Set SANDBOX_GE_GLFW_TARGET to an existing target or make glfw3 available.")
+if(NOT _SANDBOX_GE_GLFW_TARGET AND SANDBOX_GE_GLFW_LIB)
+    if(NOT EXISTS "${SANDBOX_GE_GLFW_LIB}")
+        message(FATAL_ERROR "SANDBOX_GE_GLFW_LIB is set but does not exist: ${SANDBOX_GE_GLFW_LIB}")
+    endif()
+    add_library(SandboxGE_GLFW_FALLBACK INTERFACE)
+    target_link_libraries(SandboxGE_GLFW_FALLBACK INTERFACE ${SANDBOX_GE_GLFW_LIB})
+    if(SANDBOX_GE_GLFW_INCLUDE_DIR)
+        target_include_directories(SandboxGE_GLFW_FALLBACK INTERFACE ${SANDBOX_GE_GLFW_INCLUDE_DIR})
+    endif()
+    set(_SANDBOX_GE_GLFW_TARGET SandboxGE_GLFW_FALLBACK)
 endif()
 
-target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} opengl32)
+if(NOT _SANDBOX_GE_GLFW_TARGET)
+    message(FATAL_ERROR "GLFW target not found. Set SANDBOX_GE_GLFW_TARGET to an existing target, "
+                        "or provide SANDBOX_GE_GLFW_LIB (+ SANDBOX_GE_GLFW_INCLUDE_DIR) to link a prebuilt glfw3.")
+endif()
+
+if(WIN32)
+    target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} opengl32)
+else()
+    target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} GL)
+endif()
+
+option(SANDBOX_GE_BUILD_DEMO "Build SandboxGE demo scene" OFF)
+if(SANDBOX_GE_BUILD_DEMO)
+    if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+        message(FATAL_ERROR "Demo requires SANDBOX_GE_EXTRA_INCLUDE_DIRS (for Vector/Matrix types).")
+    endif()
+
+    if(NOT DEFINED SANDBOX_GE_IMGUI_DIR)
+        set(SANDBOX_GE_IMGUI_DIR "" CACHE PATH "Path to Dear ImGui root (folder containing imgui.h).")
+    endif()
+
+    set(_SANDBOX_GE_IMGUI_DIR ${SANDBOX_GE_IMGUI_DIR})
+    if(NOT _SANDBOX_GE_IMGUI_DIR)
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui.h")
+            set(_SANDBOX_GE_IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui")
+        elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/imgui/imgui.h")
+            set(_SANDBOX_GE_IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/imgui")
+        endif()
+    endif()
+    if(NOT _SANDBOX_GE_IMGUI_DIR OR NOT EXISTS "${_SANDBOX_GE_IMGUI_DIR}/imgui.h")
+        message(FATAL_ERROR "Demo requires Dear ImGui. Set SANDBOX_GE_IMGUI_DIR to a folder containing imgui.h (e.g. ../cloth_solver/external/imgui).")
+    endif()
+
+    set(_SANDBOX_GE_IMGUI_SOURCES
+        ${_SANDBOX_GE_IMGUI_DIR}/imgui.cpp
+        ${_SANDBOX_GE_IMGUI_DIR}/imgui_draw.cpp
+        ${_SANDBOX_GE_IMGUI_DIR}/imgui_tables.cpp
+        ${_SANDBOX_GE_IMGUI_DIR}/imgui_widgets.cpp
+        ${_SANDBOX_GE_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${_SANDBOX_GE_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+
+    add_executable(SandboxGE_Demo demo/demo_scene.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
+    target_include_directories(SandboxGE_Demo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
+    target_link_libraries(SandboxGE_Demo PRIVATE SandboxGE)
+    target_compile_definitions(SandboxGE_Demo PRIVATE _USE_MATH_DEFINES)
+    
+    # Force ImGui to use GLSL 4.20 for WSL compatibility
+    if(NOT WIN32)
+        target_compile_definitions(SandboxGE_Demo PRIVATE IMGUI_IMPL_OPENGL_ES3)
+    endif()
+
+    add_custom_command(TARGET SandboxGE_Demo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+        $<TARGET_FILE_DIR:SandboxGE_Demo>/shaders
+    )
+endif()
