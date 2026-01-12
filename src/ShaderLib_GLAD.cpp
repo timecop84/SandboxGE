@@ -423,6 +423,13 @@ bool ShaderLib::loadShaderFromFile(const std::string& filename, std::string& sou
             std::stringstream buffer;
             buffer << file.rdbuf();
             source = buffer.str();
+            // Downgrade GLSL version if necessary (WSLg often supports up to 4.20)
+            const char* highVer = "#version 460";
+            const char* downgraded = "#version 420";
+            size_t pos = source.find(highVer);
+            if (pos != std::string::npos) {
+                source.replace(pos, std::strlen(highVer), downgraded);
+            }
             file.close();
             if (!source.empty()) {
                 return true;

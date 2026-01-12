@@ -82,7 +82,7 @@ void setupLighting(Camera* camera, const gfx::RenderSettings& params) {
         if (cache.shadowEnabled != -1) glUniform1i(cache.shadowEnabled, Shadow::isEnabled() ? 1 : 0);
         if (cache.shadowBias != -1) glUniform1f(cache.shadowBias, params.shadowBias);
         if (cache.shadowSoftness != -1) glUniform1f(cache.shadowSoftness, params.shadowSoftness);
-        if (cache.shadowMapSize != -1) glUniform1f(cache.shadowMapSize, 4096.0f);
+        if (cache.shadowMapSize != -1) glUniform1f(cache.shadowMapSize, static_cast<float>(Shadow::getMapSize()));
         if (cache.shadowStrength != -1) glUniform1f(cache.shadowStrength, 1.5f);
         if (cache.lightSpaceMatrix != -1) {
             glUniformMatrix4fv(cache.lightSpaceMatrix, 1, GL_FALSE,

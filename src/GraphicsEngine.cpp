@@ -42,7 +42,12 @@ namespace gfx {
 bool Engine::initialize(int width, int height) {
     Renderer::initGL();
     SSAO::init(width, height);
-    Shadow::init(4096);
+    int shadowSize = 4096;
+    if (const char* env = std::getenv("CS_SHADOW_SIZE")) {
+        int v = std::atoi(env);
+        if (v >= 512 && v <= 8192) shadowSize = v;
+    }
+    Shadow::init(shadowSize);
     return true;
 }
 
@@ -443,7 +448,7 @@ void Engine::renderScene(Camera* camera,
             glUniform1i(glGetUniformLocation(programId, "shadowEnabled"), Shadow::isEnabled() ? 1 : 0);
             glUniform1f(glGetUniformLocation(programId, "shadowBias"), params.shadowBias);
             glUniform1f(glGetUniformLocation(programId, "shadowSoftness"), params.shadowSoftness);
-            glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), 4096.0f);
+            glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), static_cast<float>(Shadow::getMapSize()));
             glUniform1f(glGetUniformLocation(programId, "shadowStrength"), 1.5f);
             glUniformMatrix4fv(glGetUniformLocation(programId, "lightSpaceMatrix"), 1, GL_FALSE,
                                glm::value_ptr(Shadow::getLightSpaceMatrix(0)));
