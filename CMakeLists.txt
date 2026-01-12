@@ -10,7 +10,8 @@ set(_GLFW_SOURCE_DIR "")
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/glfw/CMakeLists.txt")
     set(_GLFW_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cloth_solver/external/glfw")
 endif()
-if(_GLFW_SOURCE_DIR)
+# Only add GLFW subdirectory if the target doesn't already exist
+if(_GLFW_SOURCE_DIR AND NOT TARGET glfw)
     # Build GLFW from source
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
