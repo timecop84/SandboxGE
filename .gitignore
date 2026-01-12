@@ -1,0 +1,25 @@
+# Build directories
+build/
+build_cuda/
+build_wsl/
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Generated files
+imgui.ini
+compile_commands.json
+CMakeUserPresets.json
+
+# IDE
+.vscode/
+.idea/
+*.sln
+*.vcxproj*
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
