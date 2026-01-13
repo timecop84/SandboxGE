@@ -50,7 +50,7 @@ void InstancedRenderable::renderInternal(const RenderContext& context, bool shad
     
     // Bind material
     if (!shadowPass) {
-        m_material->bind();
+        m_material->bind(context);
     }
     
     // Upload instance matrices to UBO

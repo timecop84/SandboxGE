@@ -3,6 +3,7 @@
 #include "rendering/UBOStructures.h"
 #include <Camera.h>
 #include <GeometryFactory.h>
+#include <ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace gfx {
@@ -71,7 +72,7 @@ void SphereRenderable::render(const RenderContext& context) {
     }
     
     // Bind material
-    m_material->bind();
+    m_material->bind(context);
     
     // Build matrix UBO
     MatrixUBO matrixUBO;
@@ -105,21 +106,13 @@ void SphereRenderable::render(const RenderContext& context) {
 }
 
 void SphereRenderable::renderShadow(const RenderContext& context) {
-    if (!m_geometry || !context.camera) {
+    if (!m_geometry) {
         return;
     }
     
-    // Build matrix UBO for shadow pass
-    MatrixUBO matrixUBO;
-    matrixUBO.model = m_transform;
-    matrixUBO.view = context.camera->getViewMatrix();
-    matrixUBO.projection = context.camera->getProjectionMatrix();
-    matrixUBO.MVP = matrixUBO.projection * matrixUBO.view * matrixUBO.model;
-    
-    glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(matrixUBO.model)));
-    matrixUBO.normalMatrix = glm::mat4(normalMat3);
-    
-    UBOManager::instance()->updateUBO("Matrices", &matrixUBO, sizeof(MatrixUBO));
+    // For shadow pass, just set model matrix and render
+    // The shadow shader is already active with light matrices
+    Shadow::setModelMatrix(m_transform);
     
     // Render geometry
     m_geometry->render();

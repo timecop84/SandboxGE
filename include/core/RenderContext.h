@@ -38,6 +38,12 @@ struct RenderContext {
     
     // Light index for shadow pass (which light we're rendering from)
     int currentLightIndex = 0;
+    
+    // Whether shadows are enabled for this frame
+    bool shadowsEnabled = false;
+    
+    // Camera/view position for specular calculations
+    glm::vec3 viewPosition = glm::vec3(0.0f);
 };
 
 } // namespace gfx

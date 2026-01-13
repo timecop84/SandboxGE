@@ -7,27 +7,23 @@ in vec3 worldPos;
 // Output
 out vec4 fragColor;
 
-// Material UBO (binding point 1) - Phong materials use ambient/diffuse/specular
+// Material UBO (binding point 1)
 layout(std140, binding = 1) uniform MaterialBlock {
-    vec4 ambient;
-    vec4 diffuse;
-    vec4 specular;
-    float shininess;
-    float metallic;
-    float roughness;
-    int useTexture;
-} materialData;
+    vec4 baseColor;        // RGB + metallic
+    vec4 properties;       // roughness, ao, emission, useTexture
+    mat4 textureTransform;
+};
 
 // Lighting UBO (binding point 2)
 layout(std140, binding = 2) uniform LightingBlock {
-    vec4 lightPositions[4];
-    vec4 lightColors[4];
+    vec4 lightPositions[4];   // xyz = position, w = intensity
+    vec4 lightColors[4];      // rgb = color, a = range
     int lightCount;
     float ambientStrength;
     vec2 _padding;
 };
 
-// Shadow maps
+// Shadow uniforms
 uniform sampler2D shadowMap0;
 uniform sampler2D shadowMap1;
 uniform sampler2D shadowMap2;
@@ -63,55 +59,61 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
     return shadow / 9.0;
 }
 
-// Phong lighting with multi-light and shadows
+// Simplified silk-like rendering with multi-light and shadows
 void main() {
     vec3 normal = normalize(fragmentNormal);
     vec3 viewDir = normalize(viewPos - worldPos);
     
-    // Ambient component
-    vec3 ambient = materialData.ambient.rgb * ambientStrength;
+    // Tangent-based anisotropy (for silk effect)
+    vec3 tangent = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
+    vec3 bitangent = cross(normal, tangent);
+    
+    // Ambient
+    vec3 ambient = baseColor.rgb * ambientStrength;
     
     // Accumulate lighting from all lights
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
     
-    for (int i = 0; i < lightCount; ++i) {
+    for (int i = 0; i < lightCount && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
-        vec3 lightColor = lightColors[i].rgb;
         float intensity = lightPositions[i].w;
-        
-        // Calculate shadow for this light (up to 4 lights supported)
-        float shadow = 1.0;
-        if (shadowsEnabled && i < 4) {
-            vec4 shadowCoord;
-            if (i == 0) shadowCoord = shadowMatrices[0] * vec4(worldPos, 1.0);
-            else if (i == 1) shadowCoord = shadowMatrices[1] * vec4(worldPos, 1.0);
-            else if (i == 2) shadowCoord = shadowMatrices[2] * vec4(worldPos, 1.0);
-            else shadowCoord = shadowMatrices[3] * vec4(worldPos, 1.0);
-            
-            float shadowFactor;
-            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001);
-            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001);
-            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001);
-            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001);
-            
-            // Darken shadows: 30% lit in shadow, 100% lit outside
-            shadow = shadowFactor * 0.7 + 0.3;
-        }
+        vec3 lightColor = lightColors[i].rgb;
         
         vec3 lightDir = normalize(lightPos - worldPos);
         
-        // Diffuse component
+        // Diffuse
         float diff = max(dot(normal, lightDir), 0.0);
-        diffuse += lightColor * materialData.diffuse.rgb * diff * intensity * shadow;
+        diffuse += lightColor * baseColor.rgb * diff * intensity * 0.7;
         
-        // Specular component (Blinn-Phong)
+        // Anisotropic specular
         vec3 halfVec = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfVec), 0.0), materialData.shininess);
-        specular += lightColor * materialData.specular.rgb * spec * intensity * shadow;
+        float dotTH = dot(tangent, halfVec);
+        float dotBH = dot(bitangent, halfVec);
+        float aniso = sqrt(max(0.0, 1.0 - dotTH * dotTH - dotBH * dotBH));
+        float spec = pow(aniso, 32.0);
+        specular += lightColor * spec * intensity * 0.6;
     }
     
-    // Combine components
-    vec3 color = ambient + diffuse + specular;
+    // Sheen effect
+    float sheen = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+    vec3 sheenColor = vec3(0.3) * sheen;
+    
+    // Shadow for first light - DEBUG MODE
+    float shadow = 1.0;
+    if (shadowsEnabled && lightCount > 0) {
+        vec4 shadowCoord = shadowMatrices[0] * vec4(worldPos, 1.0);
+        float shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001);
+        
+        // DEBUG: Make shadows bright red to verify they work
+        if (shadowFactor < 0.5) {
+            fragColor = vec4(1.0, 0.0, 0.0, 1.0);  // BRIGHT RED = IN SHADOW
+            return;
+        }
+        
+        shadow = shadowFactor * 0.7 + 0.3;
+    }
+    
+    vec3 color = ambient + (diffuse + specular) * shadow + sheenColor;
     fragColor = vec4(color, 1.0);
 }

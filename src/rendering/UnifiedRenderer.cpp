@@ -9,7 +9,10 @@
 #include <Light.h>
 #include <Colour.h>
 #include <ShaderLib.h>
+#include <glad/gl.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <chrono>
 
 namespace gfx {
 
@@ -115,6 +118,9 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
     // Setup lighting UBO (shared across all passes)
     setupLighting(settings);
     
+    // Set shadow enabled state
+    Shadow::setEnabled(settings.shadowEnabled);
+    
     // Render shadow pass
     if (settings.shadowEnabled) {
         renderShadowPass(settings);
@@ -122,6 +128,9 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
     
     // Render main scene pass
     renderScenePass(settings);
+    
+    // Set SSAO enabled state
+    SSAO::setEnabled(settings.ssaoEnabled);
     
     // Render SSAO pass (if enabled)
     if (settings.ssaoEnabled) {
@@ -135,12 +144,42 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
 void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
     LightingUBO lighting;
     
-    // Main light
+    // Main light (w component = intensity)
     glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
-    lighting.positions[0] = glm::vec4(lightPos, 1.0f);
-    lighting.colors[0] = glm::vec4(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2], 1.0f);
+    glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
+    lighting.positions[0] = glm::vec4(lightPos, 1.0f); // w = intensity
+    lighting.colors[0] = glm::vec4(lightDiff, 1.0f);
     lighting.count = 1;
+    
+    // Add extra lights
+    for (size_t i = 0; i < settings.lights.size() && lighting.count < 4; ++i) {
+        const auto& extraLight = settings.lights[i];
+        if (!extraLight.enabled) continue;
+        
+        glm::vec3 pos(extraLight.position[0], extraLight.position[1], extraLight.position[2]);
+        glm::vec3 col(extraLight.diffuse[0], extraLight.diffuse[1], extraLight.diffuse[2]);
+        
+        lighting.positions[lighting.count] = glm::vec4(pos, extraLight.intensity); // w = intensity
+        lighting.colors[lighting.count] = glm::vec4(col, 1.0f); // rgb only, no intensity in color
+        lighting.count++;
+    }
+    
     lighting.ambientStrength = 0.2f;
+    
+    // Debug output (once per second)
+    static auto lastDebugTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastDebugTime).count();
+    
+    if (elapsed >= 1) {
+        lastDebugTime = now;
+        std::cout << "[LightingUBO] count=" << lighting.count << ", ambient=" << lighting.ambientStrength << std::endl;
+        for (int i = 0; i < lighting.count; ++i) {
+            std::cout << "  Light[" << i << "]: pos=(" << lighting.positions[i].x << "," 
+                      << lighting.positions[i].y << "," << lighting.positions[i].z 
+                      << "), intensity=" << lighting.positions[i].w << std::endl;
+        }
+    }
     
     // Upload to UBO
     UBOManager::instance()->updateUBO("Lighting", &lighting, sizeof(LightingUBO));
@@ -154,22 +193,47 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     // Sort shadow queue
     m_queue.sortShadow();
     
-    glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
-    glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
-    Light shadowLight(lightPos, Colour(lightDiff.r, lightDiff.g, lightDiff.b, 1.0f));
+    // Debug output (once per second)
+    static auto lastShadowPassDebugTime = std::chrono::steady_clock::now();
+    auto nowShadowPass = std::chrono::steady_clock::now();
+    auto elapsedShadowPass = std::chrono::duration_cast<std::chrono::seconds>(nowShadowPass - lastShadowPassDebugTime).count();
+    
+    if (elapsedShadowPass >= 1) {
+        lastShadowPassDebugTime = nowShadowPass;
+        std::cout << "[ShadowPass] Shadow queue size=" << m_queue.getShadowQueueSize() 
+                  << ", Shadow::isEnabled()=" << (Shadow::isEnabled() ? "true" : "false") 
+                  << ", extra lights=" << settings.lights.size() << std::endl;
+    }
     
     glm::vec3 sceneCenter(0.0f, 0.0f, 0.0f);
     float sceneRadius = 100.0f;
     
     // Main light shadow (shadow index 0)
-    Shadow::beginShadowPass(0, &shadowLight, sceneCenter, sceneRadius);
+    glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
+    glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
+    Light mainLight(lightPos, Colour(lightDiff.r, lightDiff.g, lightDiff.b, 1.0f));
+    
+    Shadow::beginShadowPass(0, &mainLight, sceneCenter, sceneRadius);
     Shadow::setBias(settings.shadowBias);
     Shadow::setSoftness(settings.shadowSoftness);
-    
-    // Render shadow casters
     m_queue.executeShadow(m_context);
-    
     Shadow::endShadowPass();
+    
+    // Extra lights shadows (shadow indices 1-3)
+    int shadowIndex = 1;
+    for (const auto& extraLight : settings.lights) {
+        if (shadowIndex >= 4) break; // Max 4 shadow maps
+        if (!extraLight.enabled || !extraLight.castsShadow) continue;
+        
+        glm::vec3 pos(extraLight.position[0], extraLight.position[1], extraLight.position[2]);
+        glm::vec3 diff(extraLight.diffuse[0], extraLight.diffuse[1], extraLight.diffuse[2]);
+        Light light(pos, Colour(diff.r, diff.g, diff.b, 1.0f));
+        Shadow::beginShadowPass(shadowIndex, &light, sceneCenter, sceneRadius);
+        m_queue.executeShadow(m_context);
+        Shadow::endShadowPass();
+        
+        shadowIndex++;
+    }
     
     m_stats.drawCalls += m_queue.getShadowQueueSize();
 }
@@ -188,6 +252,35 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
+    
+    // Setup shadow data in context for materials to use
+    for (int i = 0; i < 4; ++i) {
+        m_context.shadowMatrices[i] = Shadow::getLightSpaceMatrix(i);
+    }
+    
+    // Get camera position for specular
+    m_context.viewPosition = m_context.camera ? m_context.camera->getEye() : glm::vec3(0.0f);
+    
+    // Store shadow enabled state
+    m_context.shadowsEnabled = settings.shadowEnabled && Shadow::isEnabled();
+    
+    // Debug output (once per second)
+    static auto lastShadowDebugTime = std::chrono::steady_clock::now();
+    auto nowShadow = std::chrono::steady_clock::now();
+    auto elapsedShadow = std::chrono::duration_cast<std::chrono::seconds>(nowShadow - lastShadowDebugTime).count();
+    
+    if (elapsedShadow >= 1) {
+        lastShadowDebugTime = nowShadow;
+        std::cout << "[RenderScenePass] shadowsEnabled=" << (m_context.shadowsEnabled ? "true" : "false")
+                  << ", Shadow::isEnabled()=" << (Shadow::isEnabled() ? "true" : "false")
+                  << ", settings.shadowEnabled=" << (settings.shadowEnabled ? "true" : "false") << std::endl;
+    }
+    
+    // Bind shadow maps to texture units (after regular textures)
+    for (int i = 0; i < 4; ++i) {
+        glActiveTexture(GL_TEXTURE8 + i);  // Use high texture units to avoid conflicts
+        glBindTexture(GL_TEXTURE_2D, Shadow::getShadowMapTexture(i));
+    }
     
     // Execute main queue
     m_queue.executeMain(m_context);

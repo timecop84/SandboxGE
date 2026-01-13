@@ -46,6 +46,7 @@ public:
     // Common geometry creators
     std::shared_ptr<Geometry> createSphere(float radius = 1.0f, int segments = 32);
     std::shared_ptr<Geometry> createCube(float size = 1.0f);
+    std::shared_ptr<Geometry> createTriangle(float size = 1.0f);
     std::shared_ptr<Geometry> createBoundingBox();
     
     // Management

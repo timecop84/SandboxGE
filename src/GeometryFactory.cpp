@@ -201,6 +201,55 @@ std::shared_ptr<Geometry> GeometryFactory::createCube(float size) {
     return createGeometry(name, vertices, indices);
 }
 
+std::shared_ptr<Geometry> GeometryFactory::createTriangle(float size) {
+    std::string name = "triangle_" + std::to_string(size);
+    
+    // Check if already exists
+    auto existing = getGeometry(name);
+    if (existing) {
+        return existing;
+    }
+    
+    float half = size / 2.0f;
+    float height = size * 0.866f; // sqrt(3)/2 for equilateral triangle
+    
+    // Create a 3D pyramid/tetrahedron-style triangle
+    std::vector<float> vertices = {
+        // Base triangle (y = 0)
+        -half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back left
+         half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back right
+         0.0f, 0.0f,  height*2.0f/3.0f,  0.0f, -1.0f, 0.0f,  // front
+        
+        // Apex (forms pyramid)
+         0.0f, height, 0.0f,  0.0f, 1.0f, 0.0f,  // top point
+        
+        // Side faces (need separate vertices for proper normals)
+        // Front-left face
+        -half, 0.0f, -height/3.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  -0.866f, 0.5f, -0.5f,
+        
+        // Front-right face
+         half, 0.0f, -height/3.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  0.866f, 0.5f, -0.5f,
+        
+        // Back face
+        -half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
+         half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
+         0.0f, height, 0.0f,  0.0f, 0.5f, -0.866f,
+    };
+    
+    std::vector<unsigned int> indices = {
+        0, 1, 2,     // Base
+        4, 5, 6,     // Front-left face
+        7, 8, 9,     // Front-right face
+        10, 11, 12   // Back face
+    };
+    
+    return createGeometry(name, vertices, indices);
+}
+
 std::shared_ptr<Geometry> GeometryFactory::createBoundingBox() {
     std::string name = "bbox";
     

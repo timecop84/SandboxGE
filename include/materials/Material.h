@@ -8,6 +8,9 @@
 
 namespace gfx {
 
+// Forward declarations
+struct RenderContext;
+
 /**
  * @brief Material encapsulates shader + parameters + textures
  * 
@@ -31,7 +34,7 @@ public:
     const MaterialUBO& getUBOData() const { return m_uboData; }
     
     // Bind material state to OpenGL
-    void bind();
+    void bind(const RenderContext& context);
     void unbind();
     
     // Get unique ID for sorting

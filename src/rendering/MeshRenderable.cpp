@@ -3,6 +3,7 @@
 #include "rendering/UBOStructures.h"
 #include <Camera.h>
 #include <GeometryFactory.h>
+#include <ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace gfx {
@@ -22,7 +23,16 @@ void MeshRenderable::render(const RenderContext& context) {
 }
 
 void MeshRenderable::renderShadow(const RenderContext& context) {
-    renderInternal(context, true);
+    if (!m_geometry) {
+        return;
+    }
+    
+    // For shadow pass, just set model matrix and render
+    // The shadow shader is already active with light matrices
+    Shadow::setModelMatrix(m_transform);
+    
+    // Render geometry
+    m_geometry->render();
 }
 
 void MeshRenderable::renderInternal(const RenderContext& context, bool shadowPass) {
@@ -32,7 +42,7 @@ void MeshRenderable::renderInternal(const RenderContext& context, bool shadowPas
     
     // Bind material (or shadow material for shadow pass)
     if (!shadowPass) {
-        m_material->bind();
+        m_material->bind(context);
     }
     
     // Build matrix UBO

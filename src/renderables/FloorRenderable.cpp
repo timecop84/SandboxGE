@@ -3,7 +3,9 @@
 #include "rendering/UBOStructures.h"
 #include <Camera.h>
 #include <GeometryFactory.h>
+#include <ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 namespace gfx {
 
@@ -55,12 +57,24 @@ void FloorRenderable::setWireframe(bool wireframe) {
 }
 
 void FloorRenderable::render(const RenderContext& context) {
+    static int renderCount = 0;
+    if (renderCount++ < 3) {
+        std::cout << "[FloorRenderable::render] Called, geometry=" << (m_geometry ? "valid" : "null") 
+                  << ", material=" << (m_material ? m_material->getShaderName() : "null") << "\n";
+    }
+    
     if (!m_geometry || !m_material || !context.camera) {
         return;
     }
     
     // Bind material
-    m_material->bind();
+    m_material->bind(context);
+    
+    // Check for GL errors after bind
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR && renderCount <= 5) {
+        std::cerr << "[FloorRenderable] GL error after material bind: " << err << "\n";
+    }
     
     // Build matrix UBO
     MatrixUBO matrixUBO;
@@ -84,6 +98,12 @@ void FloorRenderable::render(const RenderContext& context) {
     // Render geometry
     m_geometry->render();
     
+    // Check for GL errors after render
+    err = glGetError();
+    if (err != GL_NO_ERROR && renderCount <= 5) {
+        std::cerr << "[FloorRenderable] GL error after geometry render: " << err << "\n";
+    }
+    
     // Reset wireframe
     if (m_wireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -94,8 +114,16 @@ void FloorRenderable::render(const RenderContext& context) {
 }
 
 void FloorRenderable::renderShadow(const RenderContext& context) {
-    // Floor doesn't need to render to shadow map typically
-    // but could be added if needed
+    if (!m_geometry) {
+        return;
+    }
+    
+    // For shadow pass, just set model matrix and render
+    // The shadow shader is already active with light matrices
+    Shadow::setModelMatrix(m_transform);
+    
+    // Render geometry
+    m_geometry->render();
 }
 
 uint64_t FloorRenderable::getSortKey(const RenderContext& context) const {

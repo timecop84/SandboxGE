@@ -144,6 +144,18 @@ struct UISettings {
     glm::vec3 cubeColor{0.3f, 0.7f, 1.0f};
     glm::vec3 triangleColor{1.0f, 0.6f, 0.2f};
     
+    // Sphere material properties
+    float sphereShininess = 32.0f;
+    float sphereMetallic = 0.1f;
+    float sphereRoughness = 0.3f;
+    glm::vec3 sphereSpecular{0.5f, 0.5f, 0.5f};
+    
+    // Cube material properties  
+    float cubeShininess = 32.0f;
+    float cubeMetallic = 0.1f;
+    float cubeRoughness = 0.3f;
+    glm::vec3 cubeSpecular{0.5f, 0.5f, 0.5f};
+    
     // Lighting settings
     bool shadowEnabled = true;
     float shadowBias = 0.005f;
@@ -272,10 +284,35 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         ImGui::Combo("##SphMat", &settings.sphereMaterialType, matTypes, 3);
         ImGui::ColorEdit3("Sphere Color", &settings.sphereColor.x);
         
+        // Show material-specific properties based on type
+        if (settings.sphereMaterialType == 0) {  // Phong
+            ImGui::SliderFloat("Shininess##Sph", &settings.sphereShininess, 1.0f, 256.0f, "%.0f");
+            ImGui::ColorEdit3("Specular##Sph", &settings.sphereSpecular.x);
+        } else if (settings.sphereMaterialType == 1) {  // Silk
+            ImGui::SliderFloat("Shininess##Sph", &settings.sphereShininess, 8.0f, 128.0f, "%.0f");
+            ImGui::ColorEdit3("Specular##Sph", &settings.sphereSpecular.x);
+        } else if (settings.sphereMaterialType == 2) {  // PBR
+            ImGui::SliderFloat("Metallic##Sph", &settings.sphereMetallic, 0.0f, 1.0f, "%.2f");
+            ImGui::SliderFloat("Roughness##Sph", &settings.sphereRoughness, 0.04f, 1.0f, "%.2f");
+        }
+        
         ImGui::Separator();
         ImGui::Text("Cube Material");
         ImGui::Combo("##CubeMat", &settings.cubeMaterialType, matTypes, 3);
         ImGui::ColorEdit3("Cube Color", &settings.cubeColor.x);
+        
+        // Show material-specific properties based on type
+        if (settings.cubeMaterialType == 0) {  // Phong
+            ImGui::SliderFloat("Shininess##Cube", &settings.cubeShininess, 1.0f, 256.0f, "%.0f");
+            ImGui::ColorEdit3("Specular##Cube", &settings.cubeSpecular.x);
+        } else if (settings.cubeMaterialType == 1) {  // Silk
+            ImGui::SliderFloat("Shininess##Cube", &settings.cubeShininess, 8.0f, 128.0f, "%.0f");
+            ImGui::ColorEdit3("Specular##Cube", &settings.cubeSpecular.x);
+        } else if (settings.cubeMaterialType == 2) {  // PBR
+            ImGui::SliderFloat("Metallic##Cube", &settings.cubeMetallic, 0.0f, 1.0f, "%.2f");
+            ImGui::SliderFloat("Roughness##Cube", &settings.cubeRoughness, 0.04f, 1.0f, "%.2f");
+        }
+        
         ImGui::Checkbox("Cube Wireframe", &settings.cubeWireframe);
         
         ImGui::Separator();
@@ -401,13 +438,13 @@ int main() {
     
     // Create triangle
     std::cout << "Creating triangle geometry...\n";
-    auto triGeom = GeometryFactory::instance().createCube(1.0f); // Use cube for now
+    auto triangleGeom = GeometryFactory::instance().createTriangle(1.0f);
     std::cout << "Creating triangle material...\n";
-    Material* triMaterial = Material::createPhong(glm::vec3(1.0f, 0.6f, 0.2f));
+    Material* triangleMaterial = Material::createPhong(glm::vec3(1.0f, 0.6f, 0.2f));
     std::cout << "Triangle material created\n";
-    glm::mat4 triTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 6.0f, 0.0f));
-    triTransform = glm::scale(triTransform, glm::vec3(4.0f));
-    MeshRenderable triangle(triGeom, triMaterial, triTransform);
+    glm::mat4 triangleTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 6.0f, 0.0f));
+    triangleTransform = glm::scale(triangleTransform, glm::vec3(6.0f));
+    MeshRenderable triangle(triangleGeom, triangleMaterial, triangleTransform);
     std::cout << "Triangle created\n";
     std::cout << "All scene objects created successfully\n";
 
@@ -463,10 +500,10 @@ int main() {
         cube.setTransform(cubeModel);
 
         glm::vec3 orbitPos = glm::vec3(std::cos(t) * orbitRadius, orbitHeight, std::sin(t) * orbitRadius);
-        glm::mat4 triModel = glm::translate(glm::mat4(1.0f), orbitPos);
-        triModel = glm::rotate(triModel, t * 2.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-        triModel = glm::scale(triModel, glm::vec3(4.0f));
-        triangle.setTransform(triModel);
+        glm::mat4 triangleModel = glm::translate(glm::mat4(1.0f), orbitPos);
+        triangleModel = glm::rotate(triangleModel, t * 2.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+        triangleModel = glm::scale(triangleModel, glm::vec3(6.0f));
+        triangle.setTransform(triangleModel);
 
         // Update materials if changed
         static int lastSphereMat = -1;
@@ -486,7 +523,22 @@ int main() {
         // Update colors
         sphere.setColor(uiSettings.sphereColor);
         cubeMaterial->setDiffuse(uiSettings.cubeColor);
-        triMaterial->setDiffuse(uiSettings.triangleColor);
+        triangleMaterial->setDiffuse(uiSettings.triangleColor);
+        
+        // Apply material-specific properties from UI
+        Material* sphereMat = sphere.getMaterial();
+        if (sphereMat) {
+            sphereMat->setShininess(uiSettings.sphereShininess);
+            sphereMat->setSpecular(uiSettings.sphereSpecular);
+            sphereMat->setMetallic(uiSettings.sphereMetallic);
+            sphereMat->setRoughness(uiSettings.sphereRoughness);
+        }
+        if (cubeMaterial) {
+            cubeMaterial->setShininess(uiSettings.cubeShininess);
+            cubeMaterial->setSpecular(uiSettings.cubeSpecular);
+            cubeMaterial->setMetallic(uiSettings.cubeMetallic);
+            cubeMaterial->setRoughness(uiSettings.cubeRoughness);
+        }
 
         // Update render settings from UI
         renderSettings.shadowEnabled = uiSettings.shadowEnabled;
@@ -539,7 +591,7 @@ int main() {
 
     // Cleanup
     delete cubeMaterial;
-    delete triMaterial;
+    delete triangleMaterial;
     
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

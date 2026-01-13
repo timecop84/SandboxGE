@@ -1,9 +1,13 @@
 #include "materials/Material.h"
 #include "core/ResourceManager.h"
+#include "core/RenderContext.h"
 #include "rendering/UBOManager.h"
 #include <ShaderLib.h>
+#include <glad/gl.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <functional>
 #include <iostream>
+#include <unordered_map>
 
 namespace gfx {
 
@@ -51,24 +55,51 @@ void Material::setTexture(const std::string& name, TextureHandle texture) {
     m_uboData.useTexture = texture ? 1 : 0;
 }
 
-void Material::bind() {
+void Material::bind(const RenderContext& context) {
     // Activate shader
     ShaderLib::instance()->use(m_shaderName);
     
     // Upload material UBO
     UBOManager::instance()->updateUBO("Material", &m_uboData, sizeof(MaterialUBO));
     
+    // Get shader program
+    auto* prog = (*ShaderLib::instance())[m_shaderName];
+    if (!prog) {
+        std::cerr << "Material::bind() - Failed to get shader program: " << m_shaderName << std::endl;
+        return;
+    }
+    
+    // Set shadow uniforms if in scene pass
+    if (context.currentPass == RenderContext::Pass::SCENE) {
+        // Set shadow matrices array using GL directly
+        GLint loc = glGetUniformLocation(prog->getProgramId(), "shadowMatrices");
+        
+        if (loc != -1) {
+            glUniformMatrix4fv(loc, 4, GL_FALSE, glm::value_ptr(context.shadowMatrices[0]));
+        }
+        
+        // Set shadow map samplers (bound to texture units 8-11)
+        prog->setUniform("shadowMap0", 8);
+        prog->setUniform("shadowMap1", 9);
+        prog->setUniform("shadowMap2", 10);
+        prog->setUniform("shadowMap3", 11);
+        
+        // Set shadows enabled flag as bool (GLSL bool is int in OpenGL)
+        GLint shadowsLoc = glGetUniformLocation(prog->getProgramId(), "shadowsEnabled");
+        if (shadowsLoc != -1) {
+            glUniform1i(shadowsLoc, context.shadowsEnabled ? 1 : 0);
+        }
+        
+        // Set view position for specular
+        prog->setUniform("viewPos", context.viewPosition);
+    }
+    
     // Bind textures
     int slot = 0;
     for (const auto& pair : m_textures) {
         if (pair.second) {
             (*pair.second).bind(slot);
-            
-            // Set texture sampler uniform (shader expects these names)
-            auto* prog = (*ShaderLib::instance())[m_shaderName];
-            if (prog) {
-                prog->setUniform(pair.first, slot);
-            }
+            prog->setUniform(pair.first, slot);
             slot++;
         }
     }
