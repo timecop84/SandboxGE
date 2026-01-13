@@ -6,6 +6,8 @@
 #include "ShadowRenderer.h"
 #include "ShaderPathResolver.h"
 #include <Camera.h>
+#include <Light.h>
+#include <Colour.h>
 #include <ShaderLib.h>
 #include <iostream>
 
@@ -145,18 +147,31 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
 }
 
 void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
+    if (!Shadow::isEnabled()) return;
+    
     m_context.currentPass = RenderContext::Pass::SHADOW;
     
     // Sort shadow queue
     m_queue.sortShadow();
     
-    // TODO: Need to pass Light* and scene bounds from scene graph
-    // For now, skip shadow pass until we integrate with scene management
-    // Shadow::beginShadowPass(lightIndex, light, sceneCenter, sceneRadius);
-    // m_queue.executeShadow(m_context);
-    // Shadow::endShadowPass();
+    glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
+    glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
+    Light shadowLight(lightPos, Colour(lightDiff.r, lightDiff.g, lightDiff.b, 1.0f));
     
-    // m_stats.drawCalls += m_queue.getShadowQueueSize();
+    glm::vec3 sceneCenter(0.0f, 0.0f, 0.0f);
+    float sceneRadius = 100.0f;
+    
+    // Main light shadow (shadow index 0)
+    Shadow::beginShadowPass(0, &shadowLight, sceneCenter, sceneRadius);
+    Shadow::setBias(settings.shadowBias);
+    Shadow::setSoftness(settings.shadowSoftness);
+    
+    // Render shadow casters
+    m_queue.executeShadow(m_context);
+    
+    Shadow::endShadowPass();
+    
+    m_stats.drawCalls += m_queue.getShadowQueueSize();
 }
 
 void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
@@ -165,12 +180,20 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     // Sort main queue by shader/material/depth
     m_queue.sortMain();
     
+    // Begin SSAO scene pass (renders to SSAO buffer)
+    SSAO::beginScenePass();
+    
     // Clear framebuffer
     glViewport(0, 0, m_context.viewportWidth, m_context.viewportHeight);
+    glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
     
     // Execute main queue
     m_queue.executeMain(m_context);
+    
+    // End scene pass
+    SSAO::endScenePass();
     
     m_stats.drawCalls += m_queue.getMainQueueSize();
 }
@@ -178,19 +201,20 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
 void UnifiedRenderer::renderSSAOPass(const RenderSettings& settings) {
     m_context.currentPass = RenderContext::Pass::SSAO;
     
+    if (!SSAO::isEnabled()) return;
+    
     SSAO::setRadius(settings.ssaoRadius);
     SSAO::setIntensity(settings.ssaoIntensity);
     SSAO::setBias(settings.ssaoBias);
     
-    // SSAO applies as post-process
-    // (This would integrate with existing SSAO renderer)
+    // SSAO computation happens in endScenePass()
 }
 
 void UnifiedRenderer::renderCompositePass(const RenderSettings& settings) {
     m_context.currentPass = RenderContext::Pass::COMPOSITE;
     
-    // Composite final image
-    // (This would integrate with existing composite logic)
+    // Composite SSAO with scene color to final framebuffer
+    SSAO::renderComposite(m_context.camera);
 }
 
 void UnifiedRenderer::endFrame() {

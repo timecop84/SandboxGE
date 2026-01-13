@@ -158,6 +158,8 @@ struct UISettings {
     glm::vec3 lightAmbient{0.2f, 0.2f, 0.2f};
     glm::vec3 lightDiffuse{1.1f, 1.0f, 0.95f};
     glm::vec3 lightSpecular{1.0f, 1.0f, 1.0f};
+    
+    std::vector<gfx::ExtraLight> extraLights;
 };
 
 void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) {
@@ -222,6 +224,46 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         ImGui::ColorEdit3("Ambient", &settings.lightAmbient.x);
         ImGui::ColorEdit3("Diffuse", &settings.lightDiffuse.x);
         ImGui::ColorEdit3("Specular", &settings.lightSpecular.x);
+        
+        ImGui::Separator();
+        ImGui::Text("Additional Lights");
+        if (ImGui::Button("+ Add Light")) {
+            gfx::ExtraLight extra;
+            extra.enabled = true;
+            extra.position[0] = -30.0f + static_cast<float>(settings.extraLights.size()) * 20.0f;
+            extra.position[1] = 60.0f;
+            extra.position[2] = 30.0f;
+            extra.diffuse[0] = 1.0f;
+            extra.diffuse[1] = 1.0f;
+            extra.diffuse[2] = 1.0f;
+            extra.intensity = 1.0f;
+            extra.castsShadow = false;
+            settings.extraLights.push_back(extra);
+        }
+        
+        int removeIndex = -1;
+        for (size_t i = 0; i < settings.extraLights.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            auto& light = settings.extraLights[i];
+            char header[64];
+            snprintf(header, sizeof(header), "Light %d %s", static_cast<int>(i + 1),
+                     light.enabled ? "" : "(Off)");
+            if (ImGui::TreeNode(header)) {
+                ImGui::Checkbox("Enabled", &light.enabled);
+                ImGui::SliderFloat3("Position", light.position, -200.0f, 200.0f, "%.1f");
+                ImGui::ColorEdit3("Color", light.diffuse);
+                ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 3.0f, "%.2f");
+                ImGui::Checkbox("Cast Shadow", &light.castsShadow);
+                if (ImGui::Button("Remove")) {
+                    removeIndex = static_cast<int>(i);
+                }
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+        if (removeIndex >= 0) {
+            settings.extraLights.erase(settings.extraLights.begin() + removeIndex);
+        }
     }
     
     if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -466,6 +508,7 @@ int main() {
         renderSettings.lightSpecular[0] = uiSettings.lightSpecular.x;
         renderSettings.lightSpecular[1] = uiSettings.lightSpecular.y;
         renderSettings.lightSpecular[2] = uiSettings.lightSpecular.z;
+        renderSettings.lights = uiSettings.extraLights;
 
         // Render frame
         renderer.beginFrame(&camera, t);
