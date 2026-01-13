@@ -7,9 +7,6 @@
 
 namespace gfx {
 
-/**
- * @brief Render command for queue sorting
- */
 struct RenderCommand {
     IRenderable* renderable = nullptr;
     uint64_t sortKey = 0;
@@ -20,33 +17,14 @@ struct RenderCommand {
         : renderable(r), sortKey(key), castsShadows(shadows) {}
 };
 
-/**
- * @brief Dual render queue system for main and shadow passes
- * 
- * Manages submission, sorting, and execution of render commands.
- * Main queue: sorted by shader → material → depth (minimize state changes)
- * Shadow queue: sorted by shader → depth (no materials needed)
- */
+// Dual queue system: main pass (shader/material/depth), shadow pass (shader/depth)
 class RenderQueue {
 public:
     RenderQueue();
     
-    /**
-     * @brief Submit a renderable to the queue
-     * @param renderable Object to render
-     * @param context Render context for sort key generation
-     * @param castsShadows Whether to add to shadow queue
-     */
     void submit(IRenderable* renderable, const RenderContext& context, bool castsShadows = true);
     
-    /**
-     * @brief Sort main queue by shader-material-depth
-     */
     void sortMain();
-    
-    /**
-     * @brief Sort shadow queue by shader-depth
-     */
     void sortShadow();
     
     /**

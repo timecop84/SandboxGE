@@ -7,9 +7,6 @@
 
 namespace gfx {
 
-/**
- * @brief Floor plane renderable for scene ground
- */
 class FloorRenderable : public IRenderable {
 public:
     FloorRenderable(float width, float length, const glm::vec3& position, const glm::vec3& color);

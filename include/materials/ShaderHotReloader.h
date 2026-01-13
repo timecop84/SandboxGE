@@ -8,37 +8,16 @@
 
 namespace gfx {
 
-/**
- * @brief Watches shader files and triggers recompilation on changes
- * 
- * Monitors shader source files and automatically reloads them when modified.
- * Provides visual feedback via callbacks for compilation errors.
- */
+// watches shader files, triggers recompile on changes
 class ShaderHotReloader {
 public:
     static ShaderHotReloader* instance();
     
-    /**
-     * @brief Register a shader for hot-reloading
-     * @param shaderName Shader program name in ShaderLib
-     * @param filePaths List of shader files (vertex, fragment, etc.)
-     */
     void registerShader(const std::string& shaderName, const std::vector<std::string>& filePaths);
-    
-    /**
-     * @brief Unregister a shader
-     */
     void unregisterShader(const std::string& shaderName);
     
-    /**
-     * @brief Check all registered shaders for changes
-     * Call this each frame to detect modifications
-     */
-    void checkForChanges();
+    void checkForChanges(); // call each frame to detect file modifications
     
-    /**
-     * @brief Enable/disable hot-reloading
-     */
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
     

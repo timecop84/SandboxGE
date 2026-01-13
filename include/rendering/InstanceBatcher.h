@@ -9,38 +9,15 @@
 
 namespace gfx {
 
-/**
- * @brief Collects and batches repeated geometry into instanced renderables
- * 
- * Automatically detects when the same geometry+material combo is submitted
- * multiple times and combines them into a single instanced draw call.
- */
+// Batches repeated geometry+material combos into instanced draw calls
 class InstanceBatcher {
 public:
     InstanceBatcher();
     
-    /**
-     * @brief Add a mesh instance to the batcher
-     * @param geometry Geometry handle
-     * @param material Material pointer
-     * @param transform World transform matrix
-     */
     void add(GeometryHandle geometry, Material* material, const glm::mat4& transform);
-    
-    /**
-     * @brief Finalize batching and return instanced renderables
-     * @return Vector of InstancedRenderable objects ready for submission
-     */
     std::vector<InstancedRenderable*> finalize();
-    
-    /**
-     * @brief Clear all batched data
-     */
     void clear();
     
-    /**
-     * @brief Get statistics
-     */
     size_t getBatchCount() const { return m_batches.size(); }
     size_t getTotalInstances() const;
     

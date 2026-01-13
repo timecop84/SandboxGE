@@ -8,12 +8,7 @@
 
 namespace gfx {
 
-/**
- * @brief Instanced renderable for repeated geometry
- * 
- * Efficiently renders many copies of the same geometry with different transforms.
- * Uses glDrawElementsInstanced() with instance matrix UBO.
- */
+// Repeated geometry with different transforms via glDrawElementsInstanced
 class InstancedRenderable : public IRenderable {
 public:
     InstancedRenderable(GeometryHandle geometry, Material* material);

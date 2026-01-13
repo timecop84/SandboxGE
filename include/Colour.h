@@ -1,18 +1,9 @@
-// Colour.h - Modernized, documented, and cleaned up for maintainability
 #pragma once
 
 #include <glm/glm.hpp>
 #include <iostream>
 
-/**
- * @file Colour.h
- * @brief Modern Colour class using GLM as backend.
- *
- * Interface-compatible replacement for ngl::Colour using glm::vec4.
- *
- * @author Dennis Toufexis
- * @date 2025
- */
+// glm::vec4 wrapper, interface-compatible with ngl::Colour
 class Colour {
 public:
     float m_r, m_g, m_b, m_a;

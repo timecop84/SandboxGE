@@ -8,11 +8,6 @@
 
 namespace gfx {
 
-/**
- * @brief Single mesh renderable with geometry, material, and transform
- * 
- * Most common renderable type for static or dynamic single meshes.
- */
 class MeshRenderable : public IRenderable {
 public:
     MeshRenderable(GeometryHandle geometry, Material* material, const glm::mat4& transform);

@@ -7,9 +7,6 @@
 
 namespace gfx {
 
-/**
- * @brief RAII wrapper for OpenGL buffer objects
- */
 struct GpuBuffer {
     GLuint id = 0;
     size_t size = 0;
@@ -26,9 +23,6 @@ struct GpuBuffer {
     void upload(const void* data, size_t dataSize, size_t offset = 0);
 };
 
-/**
- * @brief RAII wrapper for OpenGL textures
- */
 struct Texture {
     GLuint id = 0;
     int width = 0;
@@ -47,12 +41,7 @@ struct Texture {
     void unbind() const;
 };
 
-/**
- * @brief Centralized manager for GPU resources with handle-based access
- * 
- * Provides named lookup for geometry, buffers, and textures.
- * Uses shared_ptr for automatic reference counting and cleanup.
- */
+// GPU resource manager with handle-based access
 class ResourceManager {
 public:
     static ResourceManager* instance();

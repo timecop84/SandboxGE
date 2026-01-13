@@ -7,9 +7,6 @@
 
 namespace gfx {
 
-/**
- * @brief Sphere obstacle renderable
- */
 class SphereRenderable : public IRenderable {
 public:
     SphereRenderable(float radius, const glm::vec3& position, const glm::vec3& color);

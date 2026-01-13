@@ -11,12 +11,7 @@ namespace gfx {
 // Forward declarations
 struct RenderContext;
 
-/**
- * @brief Material encapsulates shader + parameters + textures
- * 
- * Represents a complete rendering state for an object.
- * Manages shader binding, UBO uploads, and texture binding.
- */
+// shader + params + textures for an object
 class Material {
 public:
     Material(const std::string& shaderName);

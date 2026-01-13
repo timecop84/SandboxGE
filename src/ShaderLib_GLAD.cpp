@@ -1,8 +1,3 @@
-/**
- * @file ShaderLib_GLAD.cpp
- * @brief Standalone shader library implementation using GLAD
- */
-
 #include <glad/gl.h>
 #include "ShaderLib.h"
 #include <iostream>
