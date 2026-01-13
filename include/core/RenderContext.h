@@ -1,0 +1,43 @@
+#pragma once
+
+#include <glm/glm.hpp>
+#include <array>
+
+// Forward declarations
+class Camera;
+
+namespace gfx {
+
+/**
+ * @brief Shared context data passed to all render calls
+ * 
+ * Contains camera, time, shadow matrices, and viewport info.
+ * Passed by reference to IRenderable::render() methods.
+ */
+struct RenderContext {
+    // Camera for view/projection matrices
+    Camera* camera = nullptr;
+    
+    // Current frame time (seconds)
+    float time = 0.0f;
+    
+    // Shadow matrices for shadow pass (one per light)
+    std::array<glm::mat4, 4> shadowMatrices;
+    
+    // Viewport dimensions
+    int viewportWidth = 1280;
+    int viewportHeight = 720;
+    
+    // Current render pass (for conditional logic in renderables)
+    enum class Pass {
+        SHADOW,
+        SCENE,
+        SSAO,
+        COMPOSITE
+    } currentPass = Pass::SCENE;
+    
+    // Light index for shadow pass (which light we're rendering from)
+    int currentLightIndex = 0;
+};
+
+} // namespace gfx

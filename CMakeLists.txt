@@ -34,21 +34,38 @@ endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
+    # Core infrastructure
+    src/core/ResourceManager.cpp
+    
+    # Rendering system
+    src/rendering/UBOManager.cpp
+    src/rendering/MeshRenderable.cpp
+    src/rendering/InstancedRenderable.cpp
+    src/rendering/RenderQueue.cpp
     src/Renderer.cpp
-    src/Floor.cpp
-    src/SphereObstacle.cpp
-    src/GraphicsEngine.cpp
     src/SSAORenderer.cpp
     src/ShadowRenderer.cpp
-    src/ShaderPathResolver.cpp
-    src/LightingHelper.cpp
+    
+    # Materials
+    src/materials/Material.cpp
+    src/ShaderLib_GLAD.cpp
+    
+    # Scene objects
+    src/Floor.cpp
+    src/SphereObstacle.cpp
     src/Camera.cpp
     src/Light.cpp
-    src/Material.cpp
     src/Colour.cpp
-    src/ShaderLib_GLAD.cpp
-    src/GeometryFactory.cpp
     src/TransformStack.cpp
+    
+    # Utilities
+    src/ShaderPathResolver.cpp
+    src/LightingHelper.cpp
+    src/GeometryFactory.cpp
+    
+    # Legacy (will be refactored)
+    src/GraphicsEngine.cpp
+    
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
 )
 
