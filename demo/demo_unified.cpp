@@ -1,0 +1,444 @@
+#include "rendering/UnifiedRenderer.h"
+#include "rendering/MeshRenderable.h"
+#include "renderables/FloorRenderable.h"
+#include "renderables/SphereRenderable.h"
+#include "materials/Material.h"
+#include "Camera.h"
+#include "ShaderPathResolver.h"
+#include "ShaderLib.h"
+#include "GeometryFactory.h"
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+#include <glad/gl.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <algorithm>
+#include <filesystem>
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <cmath>
+
+using namespace gfx;
+using namespace FlockingGraphics;
+
+namespace {
+
+std::string findShaderRoot() {
+    namespace fs = std::filesystem;
+    std::vector<fs::path> candidates = {
+        fs::path(ShaderPath::getExecutableDir()) / "shaders",
+        fs::current_path() / "shaders",
+        fs::current_path().parent_path() / "shaders"};
+
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate)) {
+            std::string path = candidate.string();
+            if (!path.empty()) {
+                char last = path.back();
+                if (last != '/' && last != '\\') {
+                    path += fs::path::preferred_separator;
+                }
+            }
+            return path;
+        }
+    }
+    return "shaders/";
+}
+
+struct FlyCamera {
+    glm::vec3 position{30.0f, 22.0f, 38.0f};
+    float yaw = -135.0f;
+    float pitch = -15.0f;
+    float moveSpeed = 18.0f;
+    float lookSensitivity = 0.12f;
+    bool rotating = false;
+    double lastX = 0.0;
+    double lastY = 0.0;
+};
+
+glm::vec3 computeFront(const FlyCamera& cam) {
+    float radYaw = glm::radians(cam.yaw);
+    float radPitch = glm::radians(cam.pitch);
+    glm::vec3 front;
+    front.x = cosf(radYaw) * cosf(radPitch);
+    front.y = sinf(radPitch);
+    front.z = sinf(radYaw) * cosf(radPitch);
+    return glm::normalize(front);
+}
+
+void syncCamera(Camera& camera, const FlyCamera& state, int fbWidth, int fbHeight) {
+    glm::vec3 eye = state.position;
+    glm::vec3 front = computeFront(state);
+    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    camera.set(eye, eye + front, up);
+    camera.setShape(55.0f, static_cast<float>(fbWidth) / static_cast<float>(fbHeight), 0.1f, 250.0f);
+}
+
+void handleCameraInput(GLFWwindow* window, FlyCamera& cam, float dt, bool uiWantsInput) {
+    if (uiWantsInput) return;
+
+    glm::vec3 front = computeFront(cam);
+    glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    float speed = cam.moveSpeed * dt;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) speed *= 1.7f;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cam.position += front * speed;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cam.position -= front * speed;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cam.position -= right * speed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cam.position += right * speed;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) cam.position += up * speed;
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) cam.position -= up * speed;
+}
+
+void handleMouseLook(GLFWwindow* window, FlyCamera& cam, bool uiWantsInput) {
+    if (uiWantsInput) {
+        cam.rotating = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        return;
+    }
+
+    int rightHeld = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+    if (rightHeld == GLFW_PRESS) {
+        if (!cam.rotating) {
+            cam.rotating = true;
+            glfwGetCursorPos(window, &cam.lastX, &cam.lastY);
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        } else {
+            double x, y;
+            glfwGetCursorPos(window, &x, &y);
+            double dx = x - cam.lastX;
+            double dy = y - cam.lastY;
+            cam.lastX = x;
+            cam.lastY = y;
+
+            cam.yaw += static_cast<float>(dx) * cam.lookSensitivity;
+            cam.pitch -= static_cast<float>(dy) * cam.lookSensitivity;
+            cam.pitch = std::clamp(cam.pitch, -89.0f, 89.0f);
+        }
+    } else if (cam.rotating) {
+        cam.rotating = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+}
+
+struct UISettings {
+    bool showFloor = true;
+    bool showSphere = true;
+    bool showCube = true;
+    bool showTriangle = true;
+    bool cubeWireframe = false;
+    bool triangleWireframe = false;
+    
+    int sphereMaterialType = 1; // 0=Phong, 1=Silk, 2=PBR
+    int cubeMaterialType = 0;
+    
+    glm::vec3 sphereColor{0.8f, 0.45f, 0.45f};
+    glm::vec3 cubeColor{0.3f, 0.7f, 1.0f};
+    glm::vec3 triangleColor{1.0f, 0.6f, 0.2f};
+};
+
+void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) {
+    // Info HUD
+    const float infoWidth = 260.0f;
+    const float padding = 10.0f;
+    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - infoWidth - padding, padding), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(infoWidth, 180.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.75f);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+    ImGui::Begin("InfoHUD", nullptr, flags);
+    ImGui::Text("FPS: %.1f", fps);
+    
+    auto stats = renderer.getStats();
+    ImGui::Separator();
+    ImGui::Text("Render Stats");
+    ImGui::Text("Draw calls: %d", stats.drawCalls);
+    ImGui::Text("Instances: %d", stats.instances);
+    ImGui::Text("Triangles: %d", stats.triangles);
+    
+    ImGui::Separator();
+    ImGui::Text("Navigation");
+    ImGui::Text("WASD/QE  - Move");
+    ImGui::Text("RMB drag - Look");
+    ImGui::Text("Shift    - Fast move");
+    ImGui::Text("Esc      - Quit");
+    ImGui::End();
+
+    // Settings Panel
+    ImGui::Begin("Scene Settings");
+    
+    if (ImGui::CollapsingHeader("Visibility", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Show Floor", &settings.showFloor);
+        ImGui::Checkbox("Show Sphere", &settings.showSphere);
+        ImGui::Checkbox("Show Cube", &settings.showCube);
+        ImGui::Checkbox("Show Triangle", &settings.showTriangle);
+    }
+    
+    if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Sphere Material");
+        const char* matTypes[] = {"Phong", "Silk", "PBR"};
+        ImGui::Combo("##SphMat", &settings.sphereMaterialType, matTypes, 3);
+        ImGui::ColorEdit3("Sphere Color", &settings.sphereColor.x);
+        
+        ImGui::Separator();
+        ImGui::Text("Cube Material");
+        ImGui::Combo("##CubeMat", &settings.cubeMaterialType, matTypes, 3);
+        ImGui::ColorEdit3("Cube Color", &settings.cubeColor.x);
+        ImGui::Checkbox("Cube Wireframe", &settings.cubeWireframe);
+        
+        ImGui::Separator();
+        ImGui::ColorEdit3("Triangle Color", &settings.triangleColor.x);
+        ImGui::Checkbox("Triangle Wireframe", &settings.triangleWireframe);
+    }
+    
+    ImGui::End();
+}
+
+// Helper to create material based on type
+Material* createMaterialByType(int type, const glm::vec3& color) {
+    switch (type) {
+        case 0: return Material::createPhong(color);
+        case 1: return Material::createSilk(color);
+        case 2: return Material::createSilkPBR(color);
+        default: return Material::createPhong(color);
+    }
+}
+
+} // namespace
+
+int main() {
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW\n";
+        return 1;
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    const int initialWidth = 1280;
+    const int initialHeight = 720;
+    GLFWwindow* window = glfwCreateWindow(initialWidth, initialHeight, "SandboxGE Unified Demo", nullptr, nullptr);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window\n";
+        glfwTerminate();
+        return 1;
+    }
+
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+
+    if (!gladLoadGL(glfwGetProcAddress)) {
+        std::cerr << "Failed to load OpenGL functions\n";
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return 1;
+    }
+
+    std::cout << "OpenGL " << glGetString(GL_VERSION) << "\n";
+
+    // ImGui setup
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 430");
+
+    int fbWidth = 0, fbHeight = 0;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    fbWidth = std::max(1, fbWidth);
+    fbHeight = std::max(1, fbHeight);
+    glViewport(0, 0, fbWidth, fbHeight);
+
+    // Initialize shader system
+    std::string shaderRoot = findShaderRoot();
+    ShaderPath::setRoot(shaderRoot);
+    std::cout << "Shader root: " << shaderRoot << "\n";
+
+    // Pre-load shaders
+    ShaderLib* shaderLib = ShaderLib::instance();
+    (*shaderLib)["PhongUBO"];
+    (*shaderLib)["SilkUBO"];
+    (*shaderLib)["SilkPBR_UBO"];
+    std::cout << "Shaders loaded successfully\n";
+
+    // Initialize camera
+    Camera camera(
+        glm::vec3(30.0f, 22.0f, 38.0f),
+        glm::vec3(0.0f, 6.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        Camera::PERSPECTIVE
+    );
+    camera.setShape(55.0f, static_cast<float>(fbWidth) / static_cast<float>(fbHeight), 0.1f, 250.0f);
+    FlyCamera camState;
+
+    // Initialize renderer
+    UnifiedRenderer renderer;
+    if (!renderer.initialize(fbWidth, fbHeight)) {
+        std::cerr << "Failed to initialize UnifiedRenderer\n";
+        return 1;
+    }
+    std::cout << "UnifiedRenderer initialized\n";
+
+    // Create scene objects
+    std::cout << "Creating floor...\n";
+    FloorRenderable floor(80.0f, 80.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.35f, 0.35f, 0.38f));
+    std::cout << "Floor created\n";
+    
+    std::cout << "Creating sphere...\n";
+    SphereRenderable sphere(4.0f, glm::vec3(10.0f, 4.0f, -4.0f), glm::vec3(0.8f, 0.45f, 0.45f));
+    std::cout << "Sphere created\n";
+    
+    // Create cube
+    std::cout << "Creating cube geometry...\n";
+    auto cubeGeom = GeometryFactory::instance().createCube(1.0f);
+    std::cout << "Creating cube material...\n";
+    Material* cubeMaterial = nullptr;
+    try {
+        cubeMaterial = Material::createPhong(glm::vec3(0.3f, 0.7f, 1.0f));
+        std::cout << "Cube material created\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Exception creating cube material: " << e.what() << "\n";
+        return 1;
+    }
+    std::cout << "Creating cube renderable...\n";
+    glm::mat4 cubeTransform = glm::translate(glm::mat4(1.0f), glm::vec3(-10.0f, 3.0f, 0.0f));
+    cubeTransform = glm::scale(cubeTransform, glm::vec3(6.0f, 4.0f, 6.0f));
+    MeshRenderable cube(cubeGeom, cubeMaterial, cubeTransform);
+    std::cout << "Cube created\n";
+    
+    // Create triangle
+    std::cout << "Creating triangle geometry...\n";
+    auto triGeom = GeometryFactory::instance().createCube(1.0f); // Use cube for now
+    std::cout << "Creating triangle material...\n";
+    Material* triMaterial = Material::createPhong(glm::vec3(1.0f, 0.6f, 0.2f));
+    std::cout << "Triangle material created\n";
+    glm::mat4 triTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 6.0f, 0.0f));
+    triTransform = glm::scale(triTransform, glm::vec3(4.0f));
+    MeshRenderable triangle(triGeom, triMaterial, triTransform);
+    std::cout << "Triangle created\n";
+    std::cout << "All scene objects created successfully\n";
+
+    UISettings uiSettings;
+    float lastTime = static_cast<float>(glfwGetTime());
+    float orbitRadius = 12.0f;
+    float orbitHeight = 6.0f;
+
+    // Render settings
+    RenderSettings renderSettings;
+
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+
+        // Handle window resize
+        int newWidth = 0, newHeight = 0;
+        glfwGetFramebufferSize(window, &newWidth, &newHeight);
+        newWidth = std::max(1, newWidth);
+        newHeight = std::max(1, newHeight);
+        if (newWidth != fbWidth || newHeight != fbHeight) {
+            fbWidth = newWidth;
+            fbHeight = newHeight;
+            glViewport(0, 0, fbWidth, fbHeight);
+            camera.setShape(55.0f, static_cast<float>(fbWidth) / static_cast<float>(fbHeight), 0.1f, 250.0f);
+            renderer.resize(fbWidth, fbHeight);
+        }
+
+        float t = static_cast<float>(glfwGetTime());
+        float dt = t - lastTime;
+        lastTime = t;
+
+        // ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGuiIO& io = ImGui::GetIO();
+        bool uiWantsMouse = io.WantCaptureMouse;
+        bool uiWantsKeyboard = io.WantCaptureKeyboard;
+
+        // Camera controls
+        handleMouseLook(window, camState, uiWantsMouse);
+        handleCameraInput(window, camState, dt, uiWantsMouse || uiWantsKeyboard);
+        syncCamera(camera, camState, fbWidth, fbHeight);
+
+        // Update animated objects
+        glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(-10.0f, 3.0f, 0.0f));
+        cubeModel = glm::rotate(cubeModel, 0.35f * t, glm::vec3(0.0f, 1.0f, 0.0f));
+        cubeModel = glm::scale(cubeModel, glm::vec3(6.0f, 4.0f, 6.0f));
+        cube.setTransform(cubeModel);
+
+        glm::vec3 orbitPos = glm::vec3(std::cos(t) * orbitRadius, orbitHeight, std::sin(t) * orbitRadius);
+        glm::mat4 triModel = glm::translate(glm::mat4(1.0f), orbitPos);
+        triModel = glm::rotate(triModel, t * 2.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+        triModel = glm::scale(triModel, glm::vec3(4.0f));
+        triangle.setTransform(triModel);
+
+        // Update materials if changed
+        static int lastSphereMat = -1;
+        static int lastCubeMat = -1;
+        if (uiSettings.sphereMaterialType != lastSphereMat) {
+            Material* newMat = createMaterialByType(uiSettings.sphereMaterialType, uiSettings.sphereColor);
+            sphere.setMaterial(newMat);
+            lastSphereMat = uiSettings.sphereMaterialType;
+        }
+        if (uiSettings.cubeMaterialType != lastCubeMat) {
+            delete cubeMaterial;
+            cubeMaterial = createMaterialByType(uiSettings.cubeMaterialType, uiSettings.cubeColor);
+            cube.setMaterial(cubeMaterial);
+            lastCubeMat = uiSettings.cubeMaterialType;
+        }
+
+        // Update colors
+        sphere.setColor(uiSettings.sphereColor);
+        cubeMaterial->setDiffuse(uiSettings.cubeColor);
+        triMaterial->setDiffuse(uiSettings.triangleColor);
+
+        // Render frame
+        renderer.beginFrame(&camera, t);
+        
+        if (uiSettings.showFloor) renderer.submit(&floor);
+        if (uiSettings.showSphere) renderer.submit(&sphere);
+        if (uiSettings.showCube) {
+            if (uiSettings.cubeWireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            renderer.submit(&cube);
+            if (uiSettings.cubeWireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        if (uiSettings.showTriangle) {
+            if (uiSettings.triangleWireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            renderer.submit(&triangle);
+            if (uiSettings.triangleWireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        
+        renderer.renderFrame(renderSettings);
+        renderer.endFrame();
+
+        // Render UI
+        renderUI(uiSettings, renderer, io.Framerate);
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(window);
+    }
+
+    // Cleanup
+    delete cubeMaterial;
+    delete triMaterial;
+    
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return 0;
+}

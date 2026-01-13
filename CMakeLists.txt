@@ -200,4 +200,20 @@ if(SANDBOX_GE_BUILD_DEMO)
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders
         $<TARGET_FILE_DIR:SandboxGE_Demo>/shaders
     )
+    
+    # Unified Renderer Demo (new architecture)
+    add_executable(UnifiedDemo demo/demo_unified.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
+    target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
+    target_link_libraries(UnifiedDemo PRIVATE SandboxGE)
+    target_compile_definitions(UnifiedDemo PRIVATE _USE_MATH_DEFINES)
+    
+    if(NOT WIN32)
+        target_compile_definitions(UnifiedDemo PRIVATE IMGUI_IMPL_OPENGL_ES3)
+    endif()
+    
+    add_custom_command(TARGET UnifiedDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+        $<TARGET_FILE_DIR:UnifiedDemo>/shaders
+    )
 endif()
