@@ -3,6 +3,7 @@
 #include "renderables/FloorRenderable.h"
 #include "renderables/SphereRenderable.h"
 #include "materials/Material.h"
+#include "RenderSettings.h"
 #include "Camera.h"
 #include "ShaderPathResolver.h"
 #include "ShaderLib.h"
@@ -142,6 +143,21 @@ struct UISettings {
     glm::vec3 sphereColor{0.8f, 0.45f, 0.45f};
     glm::vec3 cubeColor{0.3f, 0.7f, 1.0f};
     glm::vec3 triangleColor{1.0f, 0.6f, 0.2f};
+    
+    // Lighting settings
+    bool shadowEnabled = true;
+    float shadowBias = 0.005f;
+    float shadowSoftness = 2.0f;
+    
+    bool ssaoEnabled = true;
+    float ssaoRadius = 5.0f;
+    float ssaoIntensity = 1.5f;
+    float ssaoBias = 0.025f;
+    
+    glm::vec3 lightPosition{35.0f, 60.0f, 35.0f};
+    glm::vec3 lightAmbient{0.2f, 0.2f, 0.2f};
+    glm::vec3 lightDiffuse{1.1f, 1.0f, 0.95f};
+    glm::vec3 lightSpecular{1.0f, 1.0f, 1.0f};
 };
 
 void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) {
@@ -179,6 +195,33 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         ImGui::Checkbox("Show Sphere", &settings.showSphere);
         ImGui::Checkbox("Show Cube", &settings.showCube);
         ImGui::Checkbox("Show Triangle", &settings.showTriangle);
+    }
+    
+    if (ImGui::CollapsingHeader("Visual Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Shadows");
+        ImGui::Checkbox("Enable Shadows", &settings.shadowEnabled);
+        if (settings.shadowEnabled) {
+            ImGui::SliderFloat("Shadow Bias", &settings.shadowBias, 0.001f, 0.02f, "%.4f");
+            ImGui::SliderFloat("Shadow Softness", &settings.shadowSoftness, 1.0f, 4.0f, "%.0f");
+        }
+        ImGui::Separator();
+        ImGui::Text("Screen-Space AO");
+        ImGui::Checkbox("Enable SSAO", &settings.ssaoEnabled);
+        if (settings.ssaoEnabled) {
+            ImGui::SliderFloat("SSAO Radius", &settings.ssaoRadius, 0.5f, 10.0f, "%.1f");
+            ImGui::SliderFloat("SSAO Intensity", &settings.ssaoIntensity, 0.5f, 4.0f, "%.2f");
+            ImGui::SliderFloat("SSAO Bias", &settings.ssaoBias, 0.001f, 0.1f, "%.3f");
+        }
+    }
+    
+    if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Main Light");
+        ImGui::SliderFloat3("Position", &settings.lightPosition.x, -200.0f, 200.0f, "%.1f");
+        ImGui::Separator();
+        ImGui::Text("Light Colors");
+        ImGui::ColorEdit3("Ambient", &settings.lightAmbient.x);
+        ImGui::ColorEdit3("Diffuse", &settings.lightDiffuse.x);
+        ImGui::ColorEdit3("Specular", &settings.lightSpecular.x);
     }
     
     if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -402,6 +445,27 @@ int main() {
         sphere.setColor(uiSettings.sphereColor);
         cubeMaterial->setDiffuse(uiSettings.cubeColor);
         triMaterial->setDiffuse(uiSettings.triangleColor);
+
+        // Update render settings from UI
+        renderSettings.shadowEnabled = uiSettings.shadowEnabled;
+        renderSettings.shadowBias = uiSettings.shadowBias;
+        renderSettings.shadowSoftness = uiSettings.shadowSoftness;
+        renderSettings.ssaoEnabled = uiSettings.ssaoEnabled;
+        renderSettings.ssaoRadius = uiSettings.ssaoRadius;
+        renderSettings.ssaoIntensity = uiSettings.ssaoIntensity;
+        renderSettings.ssaoBias = uiSettings.ssaoBias;
+        renderSettings.lightPosition[0] = uiSettings.lightPosition.x;
+        renderSettings.lightPosition[1] = uiSettings.lightPosition.y;
+        renderSettings.lightPosition[2] = uiSettings.lightPosition.z;
+        renderSettings.lightAmbient[0] = uiSettings.lightAmbient.x;
+        renderSettings.lightAmbient[1] = uiSettings.lightAmbient.y;
+        renderSettings.lightAmbient[2] = uiSettings.lightAmbient.z;
+        renderSettings.lightDiffuse[0] = uiSettings.lightDiffuse.x;
+        renderSettings.lightDiffuse[1] = uiSettings.lightDiffuse.y;
+        renderSettings.lightDiffuse[2] = uiSettings.lightDiffuse.z;
+        renderSettings.lightSpecular[0] = uiSettings.lightSpecular.x;
+        renderSettings.lightSpecular[1] = uiSettings.lightSpecular.y;
+        renderSettings.lightSpecular[2] = uiSettings.lightSpecular.z;
 
         // Render frame
         renderer.beginFrame(&camera, t);
