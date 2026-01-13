@@ -4,8 +4,6 @@
 
 namespace gfx {
 
-// ===== GpuBuffer Implementation =====
-
 GpuBuffer::GpuBuffer(size_t bufferSize, GLenum bufferUsage) 
     : size(bufferSize), usage(bufferUsage) {
     glGenBuffers(1, &id);
@@ -33,8 +31,6 @@ void GpuBuffer::upload(const void* data, size_t dataSize, size_t offset) {
     glBufferSubData(GL_ARRAY_BUFFER, offset, dataSize, data);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
-
-// ===== Texture Implementation =====
 
 Texture::Texture(int w, int h, GLenum fmt, GLenum tgt) 
     : width(w), height(h), format(fmt), target(tgt) {
@@ -71,8 +67,6 @@ void Texture::bind(int slot) const {
 void Texture::unbind() const {
     glBindTexture(target, 0);
 }
-
-// ===== ResourceManager Implementation =====
 
 ResourceManager* ResourceManager::s_instance = nullptr;
 

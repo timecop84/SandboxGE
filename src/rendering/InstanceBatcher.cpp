@@ -2,9 +2,6 @@
 
 namespace gfx {
 
-InstanceBatcher::InstanceBatcher() {
-}
-
 void InstanceBatcher::add(GeometryHandle geometry, Material* material, const glm::mat4& transform) {
     if (!geometry || !material) {
         return;

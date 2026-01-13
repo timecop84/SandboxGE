@@ -20,7 +20,7 @@ struct RenderCommand {
 // Dual queue system: main pass (shader/material/depth), shadow pass (shader/depth)
 class RenderQueue {
 public:
-    RenderQueue();
+    RenderQueue() = default;
     
     void submit(IRenderable* renderable, const RenderContext& context, bool castsShadows = true);
     

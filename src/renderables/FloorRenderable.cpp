@@ -10,13 +10,8 @@
 namespace gfx {
 
 FloorRenderable::FloorRenderable(float width, float length, const glm::vec3& position, const glm::vec3& color)
-    : m_width(width)
-    , m_length(length)
-    , m_position(position)
-    , m_color(color)
-    , m_wireframe(false)
-    , m_material(nullptr)
-{
+    : m_width(width), m_length(length), m_position(position), m_color(color), 
+      m_wireframe(false), m_material(nullptr) {
     createGeometry();
     
     // Create material

@@ -12,7 +12,7 @@ namespace gfx {
 // Batches repeated geometry+material combos into instanced draw calls
 class InstanceBatcher {
 public:
-    InstanceBatcher();
+    InstanceBatcher() = default;
     
     void add(GeometryHandle geometry, Material* material, const glm::mat4& transform);
     std::vector<InstancedRenderable*> finalize();

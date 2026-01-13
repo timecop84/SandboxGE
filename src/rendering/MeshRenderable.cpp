@@ -9,14 +9,9 @@
 namespace gfx {
 
 MeshRenderable::MeshRenderable(GeometryHandle geometry, Material* material, const glm::mat4& transform)
-    : m_geometry(geometry)
-    , m_material(material)
-    , m_transform(transform) {
-}
+    : m_geometry(geometry), m_material(material), m_transform(transform) {}
 
-MeshRenderable::~MeshRenderable() {
-    // Material is owned by caller, we don't delete it
-}
+MeshRenderable::~MeshRenderable() {}
 
 void MeshRenderable::render(const RenderContext& context) {
     renderInternal(context, false);

@@ -109,8 +109,6 @@ void Material::generateMaterialID() {
     m_materialID = static_cast<MaterialID>(hasher(m_shaderName) & 0x00FFFFFF);
 }
 
-// ===== Factory Methods =====
-
 Material* Material::createPhong(const glm::vec3& diffuse) {
     Material* mat = new Material("PhongUBO");  // Use UBO-based shader
     mat->setDiffuse(diffuse);

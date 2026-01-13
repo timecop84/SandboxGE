@@ -3,12 +3,6 @@
 
 namespace gfx {
 
-RenderQueue::RenderQueue() {
-    // Reserve space for typical frame
-    m_mainQueue.reserve(256);
-    m_shadowQueue.reserve(256);
-}
-
 void RenderQueue::submit(IRenderable* renderable, const RenderContext& context, bool castsShadows) {
     if (!renderable) {
         return;

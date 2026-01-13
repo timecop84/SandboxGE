@@ -8,14 +8,9 @@
 namespace gfx {
 
 InstancedRenderable::InstancedRenderable(GeometryHandle geometry, Material* material)
-    : m_geometry(geometry)
-    , m_material(material)
-    , m_dummyTransform(1.0f) {
-}
+    : m_geometry(geometry), m_material(material), m_dummyTransform(1.0f) {}
 
-InstancedRenderable::~InstancedRenderable() {
-    // Material is owned by caller
-}
+InstancedRenderable::~InstancedRenderable() {}
 
 void InstancedRenderable::addInstance(const glm::mat4& transform) {
     if (m_instances.size() >= InstanceLimits::MAX_INSTANCES_PER_BATCH) {

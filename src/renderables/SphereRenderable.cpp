@@ -9,12 +9,8 @@
 namespace gfx {
 
 SphereRenderable::SphereRenderable(float radius, const glm::vec3& position, const glm::vec3& color)
-    : m_radius(radius)
-    , m_position(position)
-    , m_color(color)
-    , m_wireframe(false)
-    , m_material(nullptr)
-{
+    : m_radius(radius), m_position(position), m_color(color), 
+      m_wireframe(false), m_material(nullptr) {
     createGeometry();
     
     // Create material
