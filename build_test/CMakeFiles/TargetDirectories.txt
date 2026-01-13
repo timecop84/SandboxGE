@@ -1,0 +1,11 @@
+E:/dev/SandboxGE/build_test/CMakeFiles/SandboxGE.dir
+E:/dev/SandboxGE/build_test/CMakeFiles/TestNewAPI.dir
+E:/dev/SandboxGE/build_test/CMakeFiles/INSTALL.dir
+E:/dev/SandboxGE/build_test/CMakeFiles/ALL_BUILD.dir
+E:/dev/SandboxGE/build_test/CMakeFiles/ZERO_CHECK.dir
+E:/dev/SandboxGE/build_test/glfw/CMakeFiles/uninstall.dir
+E:/dev/SandboxGE/build_test/glfw/CMakeFiles/INSTALL.dir
+E:/dev/SandboxGE/build_test/glfw/CMakeFiles/ALL_BUILD.dir
+E:/dev/SandboxGE/build_test/glfw/src/CMakeFiles/glfw.dir
+E:/dev/SandboxGE/build_test/glfw/src/CMakeFiles/update_mappings.dir
+E:/dev/SandboxGE/build_test/glfw/src/CMakeFiles/INSTALL.dir

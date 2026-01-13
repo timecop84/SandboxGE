@@ -51,7 +51,7 @@ void MeshRenderable::renderInternal(const RenderContext& context, bool shadowPas
     
     // Render geometry
     if (m_geometry) {
-        m_geometry->draw();
+        m_geometry->render();
     }
     
     // Unbind material

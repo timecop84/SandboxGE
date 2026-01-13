@@ -1,0 +1,3 @@
+# CMake generation dependency list for this directory.
+E:/dev/cloth_solver/external/glfw/CMake/glfw3.pc.in
+E:/dev/cloth_solver/external/glfw/src/CMakeLists.txt

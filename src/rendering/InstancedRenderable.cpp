@@ -69,10 +69,10 @@ void InstancedRenderable::renderInternal(const RenderContext& context, bool shad
     // Draw instanced
     if (m_geometry) {
         // Get VAO from geometry
-        glBindVertexArray(m_geometry->getVAO());
+        glBindVertexArray(m_geometry->VAO);
         glDrawElementsInstanced(
             GL_TRIANGLES,
-            m_geometry->getIndexCount(),
+            static_cast<GLsizei>(m_geometry->indexCount),
             GL_UNSIGNED_INT,
             nullptr,
             static_cast<GLsizei>(m_instances.size())

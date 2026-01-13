@@ -85,7 +85,7 @@ ResourceManager* ResourceManager::instance() {
 
 GeometryHandle ResourceManager::getGeometry(const std::string& name) {
     // Delegate to GeometryFactory for now (already has good caching)
-    return GeometryFactory::instance()->getGeometry(name);
+    return FlockingGraphics::GeometryFactory::instance().getGeometry(name);
 }
 
 BufferHandle ResourceManager::createBuffer(const std::string& name, size_t size, GLenum usage) {

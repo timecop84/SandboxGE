@@ -134,6 +134,22 @@ else()
     target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} GL)
 endif()
 
+# ===== Test New API =====
+add_executable(TestNewAPI demo/test_new_api.cpp)
+target_include_directories(TestNewAPI PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
+)
+target_link_libraries(TestNewAPI PRIVATE SandboxGE)
+target_compile_definitions(TestNewAPI PRIVATE _USE_MATH_DEFINES)
+
+add_custom_command(TARGET TestNewAPI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+    $<TARGET_FILE_DIR:TestNewAPI>/shaders
+)
+
 option(SANDBOX_GE_BUILD_DEMO "Build SandboxGE demo scene" OFF)
 if(SANDBOX_GE_BUILD_DEMO)
     if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)

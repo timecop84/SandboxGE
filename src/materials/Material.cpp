@@ -1,4 +1,5 @@
 #include "materials/Material.h"
+#include "core/ResourceManager.h"
 #include "rendering/UBOManager.h"
 #include <ShaderLib.h>
 #include <functional>
@@ -61,7 +62,7 @@ void Material::bind() {
     int slot = 0;
     for (const auto& pair : m_textures) {
         if (pair.second) {
-            pair.second->bind(slot);
+            (*pair.second).bind(slot);
             
             // Set texture sampler uniform (shader expects these names)
             auto* prog = (*ShaderLib::instance())[m_shaderName];
@@ -77,7 +78,7 @@ void Material::unbind() {
     // Unbind textures
     for (const auto& pair : m_textures) {
         if (pair.second) {
-            pair.second->unbind();
+            (*pair.second).unbind();
         }
     }
 }

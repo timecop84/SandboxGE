@@ -150,15 +150,13 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     // Sort shadow queue
     m_queue.sortShadow();
     
-    // Render to shadow FBO
-    Shadow::beginShadowPass(0); // Light index 0
+    // TODO: Need to pass Light* and scene bounds from scene graph
+    // For now, skip shadow pass until we integrate with scene management
+    // Shadow::beginShadowPass(lightIndex, light, sceneCenter, sceneRadius);
+    // m_queue.executeShadow(m_context);
+    // Shadow::endShadowPass();
     
-    // Execute shadow queue
-    m_queue.executeShadow(m_context);
-    
-    Shadow::endShadowPass();
-    
-    m_stats.drawCalls += m_queue.getShadowQueueSize();
+    // m_stats.drawCalls += m_queue.getShadowQueueSize();
 }
 
 void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {

@@ -3,19 +3,23 @@
 #include <cstdint>
 #include <memory>
 
+// Forward declarations
+namespace FlockingGraphics {
+    struct Geometry;
+}
+
 namespace gfx {
 
 // Forward declarations
 class Material;
 class IRenderable;
-class Geometry;
 struct GpuBuffer;
 struct Texture;
 
 // Type aliases for clarity and type safety
 using MaterialID = uint32_t;
 using ShaderHash = uint32_t;
-using GeometryHandle = std::shared_ptr<Geometry>;
+using GeometryHandle = std::shared_ptr<FlockingGraphics::Geometry>;
 using BufferHandle = std::shared_ptr<GpuBuffer>;
 using TextureHandle = std::shared_ptr<Texture>;
 
