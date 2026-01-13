@@ -42,12 +42,15 @@ set(SANDBOX_GE_SOURCES
     src/rendering/MeshRenderable.cpp
     src/rendering/InstancedRenderable.cpp
     src/rendering/RenderQueue.cpp
+    src/rendering/InstanceBatcher.cpp
+    src/rendering/UnifiedRenderer.cpp
     src/Renderer.cpp
     src/SSAORenderer.cpp
     src/ShadowRenderer.cpp
     
     # Materials
     src/materials/Material.cpp
+    src/materials/ShaderHotReloader.cpp
     src/ShaderLib_GLAD.cpp
     
     # Scene objects
