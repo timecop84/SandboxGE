@@ -53,7 +53,11 @@ set(SANDBOX_GE_SOURCES
     src/materials/ShaderHotReloader.cpp
     src/ShaderLib_GLAD.cpp
     
-    # Scene objects
+    # Renderables (new IRenderable implementations)
+    src/renderables/FloorRenderable.cpp
+    src/renderables/SphereRenderable.cpp
+    
+    # Scene objects (legacy)
     src/Floor.cpp
     src/SphereObstacle.cpp
     src/Camera.cpp

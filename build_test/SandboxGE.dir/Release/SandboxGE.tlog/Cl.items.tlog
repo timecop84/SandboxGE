@@ -11,6 +11,8 @@ E:\dev\SandboxGE\src\ShadowRenderer.cpp;E:\dev\SandboxGE\build_test\SandboxGE.di
 E:\dev\SandboxGE\src\materials\Material.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\Material.obj
 E:\dev\SandboxGE\src\materials\ShaderHotReloader.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\ShaderHotReloader.obj
 E:\dev\SandboxGE\src\ShaderLib_GLAD.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\ShaderLib_GLAD.obj
+E:\dev\SandboxGE\src\renderables\FloorRenderable.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\FloorRenderable.obj
+E:\dev\SandboxGE\src\renderables\SphereRenderable.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\SphereRenderable.obj
 E:\dev\SandboxGE\src\Floor.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\Floor.obj
 E:\dev\SandboxGE\src\SphereObstacle.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\SphereObstacle.obj
 E:\dev\SandboxGE\src\Camera.cpp;E:\dev\SandboxGE\build_test\SandboxGE.dir\Release\Camera.obj

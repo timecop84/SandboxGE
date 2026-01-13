@@ -8,6 +8,8 @@
 #include "rendering/UnifiedRenderer.h"
 #include "materials/Material.h"
 #include "rendering/MeshRenderable.h"
+#include "renderables/FloorRenderable.h"
+#include "renderables/SphereRenderable.h"
 #include "core/ResourceManager.h"
 #include <Camera.h>
 #include <GeometryFactory.h>
@@ -108,13 +110,18 @@ int main() {
     // Create a cube geometry
     auto cubeGeom = FlockingGraphics::GeometryFactory::instance().createCube(2.0f);
     
-    // Create a material
-    auto* material = Material::createPhong(
-        glm::vec3(1.0f, 0.2f, 0.2f)  // red diffuse color
-    );
-
-    // Create renderable
-    MeshRenderable cube(cubeGeom, material, glm::mat4(1.0f));
+    // Create materials
+    auto* cubeMaterial = Material::createPhong(glm::vec3(1.0f, 0.2f, 0.2f));  // red
+    
+    // Create renderables
+    MeshRenderable cube(cubeGeom, cubeMaterial, glm::mat4(1.0f));
+    
+    // Create floor
+    FloorRenderable floor(40.0f, 40.0f, glm::vec3(0.0f, -3.0f, 0.0f), glm::vec3(0.35f, 0.35f, 0.38f));
+    
+    // Create spheres
+    SphereRenderable sphere1(1.5f, glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(0.2f, 0.7f, 1.0f));  // blue
+    SphereRenderable sphere2(1.0f, glm::vec3(4.0f, 0.0f, -2.0f), glm::vec3(0.8f, 0.45f, 0.45f)); // pink
 
     // Render settings
     RenderSettings settings;
@@ -144,6 +151,9 @@ int main() {
 
         // Render frame
         renderer.beginFrame(&camera, time);
+        renderer.submit(&floor);
+        renderer.submit(&sphere1);
+        renderer.submit(&sphere2);
         renderer.submit(&cube);
         renderer.renderFrame(settings);
         renderer.endFrame();
