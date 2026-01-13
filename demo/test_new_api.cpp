@@ -11,9 +11,33 @@
 #include "core/ResourceManager.h"
 #include <Camera.h>
 #include <GeometryFactory.h>
+#include <ShaderLib.h>
+#include <ShaderPathResolver.h>
 #include <iostream>
+#include <filesystem>
 
 using namespace gfx;
+
+// Find shader directory
+std::string findShaderRoot() {
+    std::filesystem::path exe = std::filesystem::current_path();
+    
+    // Check relative to exe
+    if (std::filesystem::exists(exe / "shaders" / "Phong.vs")) {
+        return (exe / "shaders").string();
+    }
+    
+    // Check parent directories
+    auto parent = exe.parent_path();
+    for (int i = 0; i < 3; ++i) {
+        if (std::filesystem::exists(parent / "shaders" / "Phong.vs")) {
+            return (parent / "shaders").string();
+        }
+        parent = parent.parent_path();
+    }
+    
+    return "shaders";
+}
 
 int main() {
     // Initialize GLFW
@@ -42,6 +66,28 @@ int main() {
     }
 
     std::cout << "OpenGL " << glGetString(GL_VERSION) << "\n";
+    
+    // Initialize shader path
+    std::string shaderRoot = findShaderRoot();
+    ShaderPath::setRoot(shaderRoot);
+    std::cout << "Shader root: " << shaderRoot << "\n";
+    
+    // Pre-load Phong shader (will trigger auto-creation)
+    ShaderLib* shaderLib = ShaderLib::instance();
+    auto* phongShader = (*shaderLib)["Phong"];
+    if (!phongShader) {
+        std::cerr << "Failed to create Phong shader\n";
+        return -1;
+    }
+    std::cout << "Phong shader loaded successfully\n";
+    
+    // Load PhongUBO shader
+    auto* phongUBOShader = (*shaderLib)["PhongUBO"];
+    if (!phongUBOShader) {
+        std::cerr << "Failed to create PhongUBO shader\n";
+        return -1;
+    }
+    std::cout << "PhongUBO shader loaded successfully\n";
 
     // Create camera
     Camera camera(
@@ -85,6 +131,12 @@ int main() {
         glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
+        
+        // Check OpenGL errors before render
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << "OpenGL error before render: " << err << "\n";
+        }
 
         // Rotate cube
         glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), time, glm::vec3(0, 1, 0));
@@ -95,6 +147,12 @@ int main() {
         renderer.submit(&cube);
         renderer.renderFrame(settings);
         renderer.endFrame();
+        
+        // Check OpenGL errors after render
+        err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << "OpenGL error after render: " << err << "\n";
+        }
 
         // Stats
         auto stats = renderer.getStats();

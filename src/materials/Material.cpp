@@ -92,7 +92,7 @@ void Material::generateMaterialID() {
 // ===== Factory Methods =====
 
 Material* Material::createPhong(const glm::vec3& diffuse) {
-    Material* mat = new Material("Phong");
+    Material* mat = new Material("PhongUBO");  // Use UBO-based shader
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.3f);
     mat->setSpecular(glm::vec3(0.5f));
