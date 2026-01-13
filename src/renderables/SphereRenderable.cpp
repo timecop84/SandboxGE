@@ -58,6 +58,13 @@ void SphereRenderable::setWireframe(bool wireframe) {
     m_wireframe = wireframe;
 }
 
+void SphereRenderable::setMaterial(Material* material) {
+    m_material = material;
+    if (m_material) {
+        m_material->setDiffuse(m_color);
+    }
+}
+
 void SphereRenderable::render(const RenderContext& context) {
     if (!m_geometry || !m_material || !context.camera) {
         return;

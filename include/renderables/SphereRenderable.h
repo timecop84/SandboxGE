@@ -27,6 +27,7 @@ public:
     void setRadius(float radius);
     void setColor(const glm::vec3& color);
     void setWireframe(bool wireframe);
+    void setMaterial(Material* material);
     
     const glm::vec3& getPosition() const { return m_position; }
     float getRadius() const { return m_radius; }

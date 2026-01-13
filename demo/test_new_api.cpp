@@ -90,6 +90,22 @@ int main() {
         return -1;
     }
     std::cout << "PhongUBO shader loaded successfully\n";
+    
+    // Load SilkUBO shader
+    auto* silkUBOShader = (*shaderLib)["SilkUBO"];
+    if (!silkUBOShader) {
+        std::cerr << "Failed to create SilkUBO shader\n";
+        return -1;
+    }
+    std::cout << "SilkUBO shader loaded successfully\n";
+    
+    // Load SilkPBR_UBO shader
+    auto* silkPBR_UBOShader = (*shaderLib)["SilkPBR_UBO"];
+    if (!silkPBR_UBOShader) {
+        std::cerr << "Failed to create SilkPBR_UBO shader\n";
+        return -1;
+    }
+    std::cout << "SilkPBR_UBO shader loaded successfully\n";
 
     // Create camera
     Camera camera(
@@ -111,7 +127,9 @@ int main() {
     auto cubeGeom = FlockingGraphics::GeometryFactory::instance().createCube(2.0f);
     
     // Create materials
-    auto* cubeMaterial = Material::createPhong(glm::vec3(1.0f, 0.2f, 0.2f));  // red
+    auto* cubeMaterial = Material::createPhong(glm::vec3(1.0f, 0.2f, 0.2f));  // red Phong
+    auto* silkMaterial = Material::createSilk(glm::vec3(0.2f, 0.7f, 1.0f));   // blue Silk
+    auto* pbrMaterial = Material::createSilkPBR(glm::vec3(0.8f, 0.45f, 0.45f)); // pink PBR
     
     // Create renderables
     MeshRenderable cube(cubeGeom, cubeMaterial, glm::mat4(1.0f));
@@ -119,9 +137,12 @@ int main() {
     // Create floor
     FloorRenderable floor(40.0f, 40.0f, glm::vec3(0.0f, -3.0f, 0.0f), glm::vec3(0.35f, 0.35f, 0.38f));
     
-    // Create spheres
-    SphereRenderable sphere1(1.5f, glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(0.2f, 0.7f, 1.0f));  // blue
-    SphereRenderable sphere2(1.0f, glm::vec3(4.0f, 0.0f, -2.0f), glm::vec3(0.8f, 0.45f, 0.45f)); // pink
+    // Create spheres with different materials
+    SphereRenderable sphere1(1.5f, glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(0.2f, 0.7f, 1.0f));
+    sphere1.setMaterial(silkMaterial);  // Use Silk shader
+    
+    SphereRenderable sphere2(1.0f, glm::vec3(4.0f, 0.0f, -2.0f), glm::vec3(0.8f, 0.45f, 0.45f));
+    sphere2.setMaterial(pbrMaterial);  // Use PBR shader
 
     // Render settings
     RenderSettings settings;

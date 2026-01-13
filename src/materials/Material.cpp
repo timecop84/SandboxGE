@@ -101,7 +101,7 @@ Material* Material::createPhong(const glm::vec3& diffuse) {
 }
 
 Material* Material::createSilk(const glm::vec3& diffuse) {
-    Material* mat = new Material("Silk");
+    Material* mat = new Material("SilkUBO");  // Use UBO-based shader
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.2f);
     mat->setSpecular(glm::vec3(0.8f));
@@ -110,7 +110,7 @@ Material* Material::createSilk(const glm::vec3& diffuse) {
 }
 
 Material* Material::createSilkPBR(const glm::vec3& diffuse) {
-    Material* mat = new Material("SilkPBR");
+    Material* mat = new Material("SilkPBR_UBO");  // Use UBO-based shader
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.2f);
     mat->setMetallic(0.1f);
