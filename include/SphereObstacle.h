@@ -6,57 +6,25 @@
 #include <TransformStack.h>
 #include <Vector.h>
 #include <vector>
-// #include <glad/gl.h>
 
-/// @file sphereobstacle.h
-/// @brief the obstacle class. We create the sphere that will collide with the
-/// cloth.
-/// @author Dionysios Toufexis
-/// @version 1.0
-/// @date 23/07/12
-/// Revision History :
-/// @class SphereObstacle
-/// @brief  we create the obstacle sphere and the variables to control the
-/// sphere in the gui.
-
+// Sphere obstacle with deformable surface
 class SphereObstacle {
 public:
-  /// @brief our ctor
   SphereObstacle();
-  //---------------------------------------------------------------------------------------------
-  /// @brief our dtor
   ~SphereObstacle();
-  //---------------------------------------------------------------------------------------------
-  /// @brief a variable to store the sphere radius.
+  
   float m_obstRadius;
-  //---------------------------------------------------------------------------------------------
-  /// @brief a method to get the sphere radius.
   float getRadius();
-  //---------------------------------------------------------------------------------------------
-  /// @brief Get effective radius at a specific point (accounts for deformation)
-  /// @param worldPos the world position to check
-  /// @return the deformed radius at that angle
+  
   float getDeformedRadius(const Vector& worldPos) const;
-  //---------------------------------------------------------------------------------------------
-  /// @brief variable to store the previous position of the sphere. Needed for
-  /// the verlet intergration.
+  
   Vector m_obstPosition;
-  //---------------------------------------------------------------------------------------------
-  /// @brief a method to get the position of the sphere.
   Vector getPosition();
-  //---------------------------------------------------------------------------------------------
-  /// @brief a method to set the position of the sphere.
-  /// @param[in] x the x axis position of the sphere.
-  /// @param[in] y the y axis position of the sphere.
-  /// @param[in] x the z axis position of the sphere.
-  /// @param[in] m_obstPosition a variable to store a vector with the x,y,z
-  /// coords.
+  
   void setPosition(float x, float y, float z) {
     m_obstPosition = Vector(x, y, z);
   }
-  //---------------------------------------------------------------------------------------------
-  /// @brief a method to set the position of the sphere.
-  /// @param[in] position a vector position.
+  
   void setPosition(Vector position) { m_obstPosition = position; }
   //---------------------------------------------------------------------------------------------
   /// @brief variable to store the color of the sphere.

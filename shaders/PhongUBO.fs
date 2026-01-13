@@ -38,8 +38,8 @@ uniform bool shadowsEnabled;
 // View position for specular
 uniform vec3 viewPos;
 
-// Shadow sampling with PCF
-float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
+// Improved shadow sampling with area light approximation (PCSS-like)
+float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float lightSize) {
     if (shadowCoord.w <= 0.0) return 1.0;
     
     // Perspective divide and transform to [0,1] range
@@ -52,24 +52,39 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
         return 1.0;
     }
     
-    float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+    
+    // Estimate penumbra size based on distance (fake area light)
+    float receiverDepth = projCoords.z;
+    float penumbraSize = lightSize * (receiverDepth / (1.0 - receiverDepth + 0.001));
+    penumbraSize = clamp(penumbraSize, 1.0, 4.0);
+    
+    // Larger PCF kernel for softer shadows
+    float shadow = 0.0;
+    int samples = 0;
+    int radius = int(penumbraSize);
+    for (int x = -radius; x <= radius; ++x) {
+        for (int y = -radius; y <= radius; ++y) {
+            vec2 offset = vec2(x, y) * texelSize;
+            float pcfDepth = texture(shadowMap, projCoords.xy + offset).r;
             shadow += (projCoords.z - bias) > pcfDepth ? 0.0 : 1.0;
+            samples++;
         }
     }
-    return shadow / 9.0;
+    return shadow / float(samples);
 }
 
-// Phong lighting with multi-light and shadows
+// Phong lighting with physically-based improvements
 void main() {
     vec3 normal = normalize(fragmentNormal);
     vec3 viewDir = normalize(viewPos - worldPos);
     
-    // Ambient component
-    vec3 ambient = materialData.ambient.rgb * ambientStrength;
+    // Fake ambient bounce: Use material color to simulate light bouncing off nearby surfaces
+    // More saturated materials contribute more color bleeding
+    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrength * 0.3;
+    
+    // Ambient component with color bleeding
+    vec3 ambient = (materialData.ambient.rgb + colorBleeding) * ambientStrength;
     
     // Accumulate lighting from all lights
     vec3 diffuse = vec3(0.0);
@@ -78,9 +93,15 @@ void main() {
     for (int i = 0; i < lightCount; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
         vec3 lightColor = lightColors[i].rgb;
-        float intensity = lightPositions[i].w;
+        float lightIntensity = lightPositions[i].w;
+        
+        // Distance attenuation (balanced for visual quality)
+        float distance = length(lightPos - worldPos);
+        float attenuation = lightIntensity / (1.0 + 0.007 * distance + 0.0002 * distance * distance);
         
         // Calculate shadow for this light (up to 4 lights supported)
+        // Use area light approximation with size based on light intensity
+        float lightSize = 0.5 + lightIntensity * 0.5; // Larger lights = softer shadows
         float shadow = 1.0;
         if (shadowsEnabled && i < 4) {
             vec4 shadowCoord;
@@ -90,25 +111,28 @@ void main() {
             else shadowCoord = shadowMatrices[3] * vec4(worldPos, 1.0);
             
             float shadowFactor;
-            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001);
-            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001);
-            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001);
-            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001);
+            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001, lightSize);
+            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001, lightSize);
+            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001, lightSize);
+            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001, lightSize);
             
-            // Darken shadows: 30% lit in shadow, 100% lit outside
-            shadow = shadowFactor * 0.7 + 0.3;
+            // Softer shadow transition
+            shadow = shadowFactor * 0.8 + 0.2;
+            
+            // Ambient bounce: Light scatters even in shadow (fake GI)
+            ambient += materialData.diffuse.rgb * lightColor * attenuation * (1.0 - shadowFactor) * 0.1;
         }
         
         vec3 lightDir = normalize(lightPos - worldPos);
         
-        // Diffuse component
+        // Diffuse component with attenuation
         float diff = max(dot(normal, lightDir), 0.0);
-        diffuse += lightColor * materialData.diffuse.rgb * diff * intensity * shadow;
+        diffuse += lightColor * materialData.diffuse.rgb * diff * attenuation * shadow;
         
-        // Specular component (Blinn-Phong)
+        // Specular component (Blinn-Phong) with physical attenuation
         vec3 halfVec = normalize(lightDir + viewDir);
         float spec = pow(max(dot(normal, halfVec), 0.0), materialData.shininess);
-        specular += lightColor * materialData.specular.rgb * spec * intensity * shadow;
+        specular += lightColor * materialData.specular.rgb * spec * attenuation * shadow;
     }
     
     // Combine components

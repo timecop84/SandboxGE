@@ -38,8 +38,8 @@ uniform bool shadowsEnabled;
 // View position for specular
 uniform vec3 viewPos;
 
-// Shadow sampling with PCF
-float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
+// Improved shadow sampling with area light approximation
+float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float lightSize) {
     if (shadowCoord.w <= 0.0) return 1.0;
     
     // Perspective divide and transform to [0,1] range
@@ -52,41 +52,51 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
         return 1.0;
     }
     
-    float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+    
+    // Penumbra size based on distance (area light approximation)
+    float receiverDepth = projCoords.z;
+    float penumbraSize = lightSize * (receiverDepth / (1.0 - receiverDepth + 0.001));
+    penumbraSize = clamp(penumbraSize, 1.0, 4.0);
+    
+    float shadow = 0.0;
+    int samples = 0;
+    int radius = int(penumbraSize);
+    for (int x = -radius; x <= radius; ++x) {
+        for (int y = -radius; y <= radius; ++y) {
+            vec2 offset = vec2(x, y) * texelSize;
+            float pcfDepth = texture(shadowMap, projCoords.xy + offset).r;
             shadow += (projCoords.z - bias) > pcfDepth ? 0.0 : 1.0;
+            samples++;
         }
     }
-    return shadow / 9.0;
+    return shadow / float(samples);
 }
 
-// Sample shadow for a specific light index
-float sampleShadowForLight(int lightIndex, vec3 pos) {
+// Sample shadow for a specific light index with area light size
+float sampleShadowForLight(int lightIndex, vec3 pos, float lightSize) {
     vec4 shadowCoord;
     float shadowFactor = 1.0;
     
     if (lightIndex == 0) {
         shadowCoord = shadowMatrices[0] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 1) {
         shadowCoord = shadowMatrices[1] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 2) {
         shadowCoord = shadowMatrices[2] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 3) {
         shadowCoord = shadowMatrices[3] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001, lightSize);
     }
     
-    // Map shadow [0,1] to [0.3,1] for softer look
-    return shadowFactor * 0.7 + 0.3;
+    // Softer shadow transition
+    return shadowFactor * 0.8 + 0.2;
 }
 
-// Simplified silk-like rendering with multi-light and per-light shadows
+// Silk shader with physically-based improvements
 void main() {
     vec3 normal = normalize(fragmentNormal);
     vec3 viewDir = normalize(viewPos - worldPos);
@@ -95,8 +105,9 @@ void main() {
     vec3 tangent = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
     vec3 bitangent = cross(normal, tangent);
     
-    // Ambient
-    vec3 ambient = materialData.diffuse.rgb * ambientStrength;
+    // Ambient with color bleeding (silk tends to have rich colors)
+    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrength * 0.4;
+    vec3 ambient = (materialData.diffuse.rgb + colorBleeding) * ambientStrength;
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 diffuseAccum = vec3(0.0);
@@ -104,31 +115,40 @@ void main() {
     
     for (int i = 0; i < lightCount && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
-        float intensity = lightPositions[i].w;
+        float lightIntensity = lightPositions[i].w;
         vec3 lightColor = lightColors[i].rgb;
+        
+        // Distance attenuation (balanced for visual quality)
+        float distance = length(lightPos - worldPos);
+        float attenuation = lightIntensity / (1.0 + 0.007 * distance + 0.0002 * distance * distance);
         
         vec3 lightDir = normalize(lightPos - worldPos);
         
-        // Calculate shadow for this light
+        // Calculate shadow with area light size
+        float lightSize = 0.5 + lightIntensity * 0.5;
         float shadow = 1.0;
         if (shadowsEnabled) {
-            shadow = sampleShadowForLight(i, worldPos);
+            float shadowFactor = sampleShadowForLight(i, worldPos, lightSize);
+            shadow = shadowFactor;
+            
+            // Ambient bounce from shadowed areas (fake GI)
+            ambient += materialData.diffuse.rgb * lightColor * attenuation * (1.0 - shadowFactor) * 0.15;
         }
         
-        // Diffuse
+        // Diffuse with physical attenuation
         float diff = max(dot(normal, lightDir), 0.0);
-        diffuseAccum += lightColor * materialData.diffuse.rgb * diff * intensity * 0.7 * shadow;
+        diffuseAccum += lightColor * materialData.diffuse.rgb * diff * attenuation * 0.7 * shadow;
         
-        // Anisotropic specular
+        // Anisotropic specular (silk highlight)
         vec3 halfVec = normalize(lightDir + viewDir);
         float dotTH = dot(tangent, halfVec);
         float dotBH = dot(bitangent, halfVec);
         float aniso = sqrt(max(0.0, 1.0 - dotTH * dotTH - dotBH * dotBH));
         float spec = pow(aniso, materialData.shininess);
-        specularAccum += lightColor * materialData.specular.rgb * spec * intensity * 0.6 * shadow;
+        specularAccum += lightColor * materialData.specular.rgb * spec * attenuation * 0.6 * shadow;
     }
     
-    // Sheen effect (view-dependent rim lighting)
+    // Sheen effect (view-dependent rim lighting typical of silk)
     float sheen = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
     vec3 sheenColor = materialData.specular.rgb * 0.3 * sheen;
     

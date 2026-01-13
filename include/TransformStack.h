@@ -1,19 +1,10 @@
-// TransformStack.h - Modernized, documented, and cleaned up for maintainability
+// Transform stack for hierarchical object transforms
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stack>
 #include "Matrix.h"
 
-/**
- * @file TransformStack.h
- * @brief Modern TransformStack using GLM for math.
- *
- * Pure C++ transform stack implementation with modern GLM math.
- *
- * @author Dennis Toufexis
- * @date 2025
- */
 class TransformStack {
 public:
     TransformStack() {
@@ -37,7 +28,6 @@ public:
     void setScale(float x, float y, float z);
     void setScale(const glm::vec3& scale);
     
-    // Matrix management for modern OpenGL compatibility
     void setProjection(const glm::mat4& projection) {
         m_projection = projection;
     }
@@ -47,7 +37,6 @@ public:
     }
     
     void setModel(const glm::mat4& model) {
-        // Update the current top of the stack
         if (!m_stack.empty()) {
             m_stack.pop();
             m_stack.push(model);

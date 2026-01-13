@@ -34,12 +34,6 @@ void setLightUniforms(ShaderLib::ProgramWrapper* prog, const LightParams& light,
 /// Set all shadow uniforms on a shader program
 void setShadowUniforms(ShaderLib::ProgramWrapper* prog, const ShadowParams& shadow);
 
-/// Convenience: set both light and shadow uniforms
-void setLightingUniforms(ShaderLib::ProgramWrapper* prog, 
-                         const LightParams& light, 
-                         const ShadowParams& shadow,
-                         const glm::mat4& viewMatrix);
-
 /// Build LightParams from UI arrays (lightPosition[3], lightAmbient[3], etc.)
 LightParams fromUIParams(const float* position, const float* ambient, 
                          const float* diffuse, const float* specular);

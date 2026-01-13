@@ -3,15 +3,7 @@
 #include <glm/glm.hpp>
 
 namespace FlockingShaders {
-/**
- * @file UBOStructures.h
- * @brief UBO data structures for modern shader pipeline (std140 layout).
- *
- * Modernized for clarity and maintainability.
- *
- * @author Dennis Toufexis
- * @date 2025
- */
+
 struct MatrixBlock {
     glm::mat4 MVP;
     glm::mat4 MV;

@@ -4,12 +4,7 @@
 
 namespace gfx {
 
-/**
- * @brief UBO for matrix transforms (binding point 0)
- * 
- * std140 layout: matrices are naturally aligned (16 bytes * 4 = 64 bytes each)
- * Total size: 320 bytes
- */
+// Matrix transforms (binding point 0) - std140 layout, 320 bytes total
 struct MatrixUBO {
     alignas(16) glm::mat4 model;         // 64 bytes
     alignas(16) glm::mat4 view;          // 64 bytes
@@ -18,12 +13,7 @@ struct MatrixUBO {
     alignas(16) glm::mat4 normalMatrix;  // 64 bytes (mat3 stored as mat4 for alignment)
 };
 
-/**
- * @brief UBO for material properties (binding point 1)
- * 
- * std140 layout: vec4 are 16-byte aligned, scalars follow vec4 packing rules
- * Total size: 80 bytes
- */
+// Material properties (binding point 1) - std140 layout, 80 bytes total
 struct MaterialUBO {
     alignas(16) glm::vec4 ambient;   // 16 bytes (rgb + padding)
     alignas(16) glm::vec4 diffuse;   // 16 bytes (rgb + padding)
@@ -32,21 +22,14 @@ struct MaterialUBO {
     alignas(16) float metallic;      // 4 bytes (for PBR)
     alignas(16) float roughness;     // 4 bytes (for PBR)
     alignas(16) int useTexture;      // 4 bytes (bool as int)
-    // Total: 64 bytes (4 vec4s + 4 aligned floats/ints)
 };
 
-/**
- * @brief UBO for lighting data (binding point 2)
- * 
- * std140 layout: arrays have 16-byte stride for vec4
- * Total size: 144 bytes
- */
+// Lighting data (binding point 2) - std140 layout, 144 bytes total
 struct LightingUBO {
     alignas(16) glm::vec4 positions[4];    // 64 bytes (4 * 16)
     alignas(16) glm::vec4 colors[4];       // 64 bytes (4 * 16)
     alignas(16) int count;                 // 4 bytes
     alignas(16) float ambientStrength;     // 4 bytes
-    // Total: 136 bytes
 };
 
 /**

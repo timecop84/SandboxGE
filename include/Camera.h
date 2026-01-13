@@ -1,17 +1,8 @@
-// Camera.h - Modernized, documented, and cleaned up for maintainability
+// Camera with GLM math
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-/**
- * @file Camera.h
- * @brief Modern Camera class using GLM for math.
- *
- * Pure C++ camera implementation with modern GLM math.
- *
- * @author Dennis Toufexis
- * @date 2025
- */
 class Camera {
 public:
     enum ProjectionType {
@@ -51,6 +42,5 @@ private:
     float m_znear;
     float m_zfar;
     
-    // Orthographic parameters
     float m_left, m_right, m_bottom, m_top;
 };

@@ -26,13 +26,18 @@ UnifiedRenderer::~UnifiedRenderer() {
 bool UnifiedRenderer::initialize(int width, int height) {
     std::cout << "UnifiedRenderer: Initializing..." << std::endl;
     
-    // Initialize OpenGL state
-    initializeOpenGLState();
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDisable(GL_CULL_FACE);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     
-    // Initialize UBO system
-    initializeUBOs();
+    UBOManager* uboMgr = UBOManager::instance();
+    uboMgr->createUBO("Matrices", sizeof(MatrixUBO), UBOBindingPoints::MATRICES);
+    uboMgr->createUBO("Material", sizeof(MaterialUBO), UBOBindingPoints::MATERIAL);
+    uboMgr->createUBO("Lighting", sizeof(LightingUBO), UBOBindingPoints::LIGHTING);
+    uboMgr->createUBO("Instances", sizeof(InstancesUBO), UBOBindingPoints::INSTANCES);
+    std::cout << "UnifiedRenderer: UBOs initialized at binding points 0-3" << std::endl;
     
-    // Initialize render passes
     SSAO::init(width, height);
     
     int shadowSize = 4096;
@@ -47,25 +52,6 @@ bool UnifiedRenderer::initialize(int width, int height) {
     
     std::cout << "UnifiedRenderer: Initialized successfully" << std::endl;
     return true;
-}
-
-void UnifiedRenderer::initializeOpenGLState() {
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDisable(GL_CULL_FACE);
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-}
-
-void UnifiedRenderer::initializeUBOs() {
-    UBOManager* uboMgr = UBOManager::instance();
-    
-    // Create UBOs with fixed binding points
-    uboMgr->createUBO("Matrices", sizeof(MatrixUBO), UBOBindingPoints::MATRICES);
-    uboMgr->createUBO("Material", sizeof(MaterialUBO), UBOBindingPoints::MATERIAL);
-    uboMgr->createUBO("Lighting", sizeof(LightingUBO), UBOBindingPoints::LIGHTING);
-    uboMgr->createUBO("Instances", sizeof(InstancesUBO), UBOBindingPoints::INSTANCES);
-    
-    std::cout << "UnifiedRenderer: UBOs initialized at binding points 0-3" << std::endl;
 }
 
 void UnifiedRenderer::resize(int width, int height) {
@@ -87,11 +73,9 @@ void UnifiedRenderer::beginFrame(Camera* camera, float time) {
     m_context.camera = camera;
     m_context.time = time;
     
-    // Clear queues
     m_queue.clear();
     m_batcher.clear();
     
-    // Reset stats
     m_stats = Stats();
 }
 
@@ -105,7 +89,6 @@ void UnifiedRenderer::submit(IRenderable* renderable, bool castsShadows) {
         return;
     }
     
-    // Submit to queue
     m_queue.submit(renderable, m_context, castsShadows);
 }
 
@@ -115,29 +98,22 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
         return;
     }
     
-    // Setup lighting UBO (shared across all passes)
     setupLighting(settings);
     
-    // Set shadow enabled state
     Shadow::setEnabled(settings.shadowEnabled);
     
-    // Render shadow pass
     if (settings.shadowEnabled) {
         renderShadowPass(settings);
     }
     
-    // Render main scene pass
     renderScenePass(settings);
     
-    // Set SSAO enabled state
     SSAO::setEnabled(settings.ssaoEnabled);
     
-    // Render SSAO pass (if enabled)
     if (settings.ssaoEnabled) {
         renderSSAOPass(settings);
     }
     
-    // Composite pass
     renderCompositePass(settings);
 }
 
@@ -147,11 +123,10 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
     // Main light (w component = intensity)
     glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
     glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
-    lighting.positions[0] = glm::vec4(lightPos, 1.0f); // w = intensity
+    lighting.positions[0] = glm::vec4(lightPos, 1.0f);
     lighting.colors[0] = glm::vec4(lightDiff, 1.0f);
     lighting.count = 1;
     
-    // Add extra lights
     for (size_t i = 0; i < settings.lights.size() && lighting.count < 4; ++i) {
         const auto& extraLight = settings.lights[i];
         if (!extraLight.enabled) continue;
@@ -159,14 +134,13 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
         glm::vec3 pos(extraLight.position[0], extraLight.position[1], extraLight.position[2]);
         glm::vec3 col(extraLight.diffuse[0], extraLight.diffuse[1], extraLight.diffuse[2]);
         
-        lighting.positions[lighting.count] = glm::vec4(pos, extraLight.intensity); // w = intensity
-        lighting.colors[lighting.count] = glm::vec4(col, 1.0f); // rgb only, no intensity in color
+        lighting.positions[lighting.count] = glm::vec4(pos, extraLight.intensity);
+        lighting.colors[lighting.count] = glm::vec4(col, 1.0f);
         lighting.count++;
     }
     
     lighting.ambientStrength = 0.2f;
     
-    // Debug output (once per second)
     static auto lastDebugTime = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastDebugTime).count();
@@ -181,7 +155,6 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
         }
     }
     
-    // Upload to UBO
     UBOManager::instance()->updateUBO("Lighting", &lighting, sizeof(LightingUBO));
 }
 
@@ -190,10 +163,8 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     
     m_context.currentPass = RenderContext::Pass::SHADOW;
     
-    // Sort shadow queue
     m_queue.sortShadow();
     
-    // Debug output (once per second)
     static auto lastShadowPassDebugTime = std::chrono::steady_clock::now();
     auto nowShadowPass = std::chrono::steady_clock::now();
     auto elapsedShadowPass = std::chrono::duration_cast<std::chrono::seconds>(nowShadowPass - lastShadowPassDebugTime).count();
@@ -241,30 +212,23 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
 void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     m_context.currentPass = RenderContext::Pass::SCENE;
     
-    // Sort main queue by shader/material/depth
     m_queue.sortMain();
     
-    // Begin SSAO scene pass (renders to SSAO buffer)
     SSAO::beginScenePass();
     
-    // Clear framebuffer
     glViewport(0, 0, m_context.viewportWidth, m_context.viewportHeight);
     glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     
-    // Setup shadow data in context for materials to use
     for (int i = 0; i < 4; ++i) {
         m_context.shadowMatrices[i] = Shadow::getLightSpaceMatrix(i);
     }
     
-    // Get camera position for specular
     m_context.viewPosition = m_context.camera ? m_context.camera->getEye() : glm::vec3(0.0f);
     
-    // Store shadow enabled state
     m_context.shadowsEnabled = settings.shadowEnabled && Shadow::isEnabled();
     
-    // Debug output (once per second)
     static auto lastShadowDebugTime = std::chrono::steady_clock::now();
     auto nowShadow = std::chrono::steady_clock::now();
     auto elapsedShadow = std::chrono::duration_cast<std::chrono::seconds>(nowShadow - lastShadowDebugTime).count();
@@ -276,16 +240,13 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
                   << ", settings.shadowEnabled=" << (settings.shadowEnabled ? "true" : "false") << std::endl;
     }
     
-    // Bind shadow maps to texture units (after regular textures)
     for (int i = 0; i < 4; ++i) {
         glActiveTexture(GL_TEXTURE8 + i);  // Use high texture units to avoid conflicts
         glBindTexture(GL_TEXTURE_2D, Shadow::getShadowMapTexture(i));
     }
     
-    // Execute main queue
     m_queue.executeMain(m_context);
     
-    // End scene pass
     SSAO::endScenePass();
     
     m_stats.drawCalls += m_queue.getMainQueueSize();
@@ -299,14 +260,11 @@ void UnifiedRenderer::renderSSAOPass(const RenderSettings& settings) {
     SSAO::setRadius(settings.ssaoRadius);
     SSAO::setIntensity(settings.ssaoIntensity);
     SSAO::setBias(settings.ssaoBias);
-    
-    // SSAO computation happens in endScenePass()
 }
 
 void UnifiedRenderer::renderCompositePass(const RenderSettings& settings) {
     m_context.currentPass = RenderContext::Pass::COMPOSITE;
     
-    // Composite SSAO with scene color to final framebuffer
     SSAO::renderComposite(m_context.camera);
 }
 
@@ -323,7 +281,6 @@ void UnifiedRenderer::cleanup() {
     m_queue.clear();
     m_batcher.clear();
     
-    // Cleanup UBOs
     UBOManager::instance()->cleanup();
 }
 

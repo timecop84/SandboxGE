@@ -41,8 +41,8 @@ uniform vec3 viewPos;
 
 const float PI = 3.14159265359;
 
-// Shadow sampling with PCF
-float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
+// Improved shadow sampling with area light approximation
+float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float lightSize) {
     if (shadowCoord.w <= 0.0) return 1.0;
     
     // Perspective divide and transform to [0,1] range
@@ -55,15 +55,25 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias) {
         return 1.0;
     }
     
-    float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+    
+    // Penumbra size (area light approximation)
+    float receiverDepth = projCoords.z;
+    float penumbraSize = lightSize * (receiverDepth / (1.0 - receiverDepth + 0.001));
+    penumbraSize = clamp(penumbraSize, 1.0, 4.0);
+    
+    float shadow = 0.0;
+    int samples = 0;
+    int radius = int(penumbraSize);
+    for (int x = -radius; x <= radius; ++x) {
+        for (int y = -radius; y <= radius; ++y) {
+            vec2 offset = vec2(x, y) * texelSize;
+            float pcfDepth = texture(shadowMap, projCoords.xy + offset).r;
             shadow += (projCoords.z - bias) > pcfDepth ? 0.0 : 1.0;
+            samples++;
         }
     }
-    return shadow / 9.0;
+    return shadow / float(samples);
 }
 
 // GGX/Trowbridge-Reitz normal distribution
@@ -102,57 +112,70 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-// Sample shadow for a specific light index
-float sampleShadowForLight(int lightIndex, vec3 pos) {
+// Sample shadow for a specific light index with area light size
+float sampleShadowForLight(int lightIndex, vec3 pos, float lightSize) {
     vec4 shadowCoord;
     float shadowFactor = 1.0;
     
     if (lightIndex == 0) {
         shadowCoord = shadowMatrices[0] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 1) {
         shadowCoord = shadowMatrices[1] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 2) {
         shadowCoord = shadowMatrices[2] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001, lightSize);
     } else if (lightIndex == 3) {
         shadowCoord = shadowMatrices[3] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001);
+        shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001, lightSize);
     }
     
-    // Map shadow [0,1] to [0.3,1] for softer look
-    return shadowFactor * 0.7 + 0.3;
+    // Softer shadow transition
+    return shadowFactor * 0.8 + 0.2;
 }
 
 void main() {
     vec3 N = normalize(fragmentNormal);
     vec3 V = normalize(viewPos - worldPos);
     
-    // Material properties from UBO - using materialData instance
+    // Material properties from UBO
     vec3 albedo = materialData.diffuse.rgb;
     float metal = materialData.metallic;
-    float rough = max(materialData.roughness, 0.04);  // Clamp to avoid division issues
+    float rough = max(materialData.roughness, 0.04);
     
-    // Base reflectivity (for dielectrics use 0.04, lerp with albedo for metals)
+    // Base reflectivity
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metal);
+    
+    // Ambient with color bleeding for non-metals
+    vec3 colorBleeding = albedo * (1.0 - metal) * ambientStrength * 0.3;
+    vec3 ambient = (albedo + colorBleeding) * ambientStrength;
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 Lo = vec3(0.0);
     
     for (int i = 0; i < lightCount && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
-        float intensity = lightPositions[i].w;
+        float lightIntensity = lightPositions[i].w;
         vec3 lightColor = lightColors[i].rgb;
         
         vec3 L = normalize(lightPos - worldPos);
         vec3 H = normalize(V + L);
         
-        // Calculate shadow for this light
+        // Distance attenuation (balanced for visual quality)
+        float distance = length(lightPos - worldPos);
+        float attenuation = lightIntensity / (1.0 + 0.007 * distance + 0.0002 * distance * distance);
+        
+        // Calculate shadow with area light approximation
+        float lightSize = 0.5 + lightIntensity * 0.5;
         float shadow = 1.0;
         if (shadowsEnabled) {
-            shadow = sampleShadowForLight(i, worldPos);
+            float shadowFactor = sampleShadowForLight(i, worldPos, lightSize);
+            shadow = shadowFactor;
+            
+            // Ambient bounce: Even in shadow, light scatters (fake GI)
+            ambient += albedo * lightColor * attenuation * (1.0 - shadowFactor) * 0.1;
         }
         
         // Cook-Torrance BRDF
@@ -173,12 +196,9 @@ void main() {
         float NdotL = max(dot(N, L), 0.0);
         vec3 diffuseBRDF = kD * albedo / PI;
         
-        // Combine for this light with per-light shadow
-        Lo += (diffuseBRDF + specularBRDF) * lightColor * NdotL * intensity * shadow;
+        // Combine with physical attenuation and per-light shadow
+        Lo += (diffuseBRDF + specularBRDF) * lightColor * NdotL * attenuation * shadow;
     }
-    
-    // Ambient (affected by AO if we had it, use 1.0 for now)
-    vec3 ambient = ambientStrength * albedo;
     
     vec3 color = ambient + Lo;
     

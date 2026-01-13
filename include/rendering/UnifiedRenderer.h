@@ -93,10 +93,7 @@ private:
     void renderSSAOPass(const RenderSettings& settings);
     void renderCompositePass(const RenderSettings& settings);
     
-    // Setup functions
-    void initializeUBOs();
     void setupLighting(const RenderSettings& settings);
-    void initializeOpenGLState();
 };
 
 } // namespace gfx

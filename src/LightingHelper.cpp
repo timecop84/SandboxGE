@@ -9,7 +9,6 @@ namespace Lighting {
 void setLightUniforms(ShaderLib::ProgramWrapper* prog, const LightParams& light, const glm::mat4& viewMatrix) {
     if (!prog) return;
     
-    // Transform light position to view space
     glm::vec4 lightViewPos = viewMatrix * glm::vec4(light.position, 1.0f);
     
     prog->setUniform("light.position", lightViewPos);
@@ -33,18 +32,9 @@ void setShadowUniforms(ShaderLib::ProgramWrapper* prog, const ShadowParams& shad
     glUniform1f(glGetUniformLocation(programId, "shadowStrength"), shadow.strength);
     glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), static_cast<float>(shadow.mapSize));
     
-    // Bind shadow map to texture unit 5 (avoid conflicts with other textures)
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, Shadow::getShadowMapTexture(0));
     glUniform1i(glGetUniformLocation(programId, "shadowMap"), 5);
-}
-
-void setLightingUniforms(ShaderLib::ProgramWrapper* prog, 
-                         const LightParams& light, 
-                         const ShadowParams& shadow,
-                         const glm::mat4& viewMatrix) {
-    setLightUniforms(prog, light, viewMatrix);
-    setShadowUniforms(prog, shadow);
 }
 
 LightParams fromUIParams(const float* position, const float* ambient, 

@@ -1,6 +1,3 @@
-/// @file SSAORenderer.cpp
-/// @brief Screen-Space Ambient Occlusion implementation
-
 #include "SSAORenderer.h"
 #include "ShaderPathResolver.h"
 #include <glad/gl.h>
@@ -15,23 +12,19 @@
 namespace SSAO {
 
 namespace {
-    // State
     bool s_initialized = false;
     bool s_enabled = true;
     int s_width = 0;
     int s_height = 0;
     
-    // Parameters
     float s_radius = 2.0f;
     float s_bias = 0.025f;
     float s_intensity = 1.5f;
     
-    // Shader programs (we manage these ourselves)
     GLuint s_ssaoProgram = 0;
     GLuint s_blurProgram = 0;
     GLuint s_compositeProgram = 0;
     
-    // Framebuffers
     GLuint s_sceneFBO = 0;
     GLuint s_sceneColorTex = 0;
     GLuint s_sceneDepthTex = 0;
@@ -42,17 +35,13 @@ namespace {
     GLuint s_ssaoBlurFBO = 0;
     GLuint s_ssaoBlurTex = 0;
     
-    // Noise texture for random rotation
     GLuint s_noiseTex = 0;
     
-    // Sample kernel
     std::vector<glm::vec3> s_kernel;
     
-    // Fullscreen quad VAO
     GLuint s_quadVAO = 0;
     GLuint s_quadVBO = 0;
     
-    // Compile shader
     GLuint compileShader(GLenum type, const std::string& source) {
         GLuint shader = glCreateShader(type);
         const char* src = source.c_str();
@@ -71,7 +60,6 @@ namespace {
         return shader;
     }
     
-    // Link program
     GLuint linkProgram(GLuint vs, GLuint fs) {
         GLuint program = glCreateProgram();
         glAttachShader(program, vs);
@@ -90,7 +78,6 @@ namespace {
         return program;
     }
     
-    // Create shader program from files
     GLuint createProgram(const std::string& vsFile, const std::string& fsFile) {
         std::string vsSource = ShaderPath::loadSource(vsFile);
         std::string fsSource = ShaderPath::loadSource(fsFile);
@@ -110,7 +97,6 @@ namespace {
         return prog;
     }
 
-    // Generate hemisphere sample kernel
     void generateKernel() {
         std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
         std::default_random_engine generator(42);
@@ -127,7 +113,6 @@ namespace {
             sample = glm::normalize(sample);
             sample *= randomFloats(generator);
             
-            // Scale samples to be closer to origin (more samples near fragment)
             float scale = float(i) / 64.0f;
             scale = 0.1f + scale * scale * 0.9f;  // lerp(0.1, 1.0, scale^2)
             sample *= scale;
@@ -136,7 +121,6 @@ namespace {
         }
     }
     
-    // Generate noise texture for random rotation
     void generateNoiseTexture() {
         std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
         std::default_random_engine generator(123);
@@ -161,7 +145,6 @@ namespace {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
     
-    // Create fullscreen quad
     void createQuad() {
         float quadVertices[] = {
             // positions   // texcoords
