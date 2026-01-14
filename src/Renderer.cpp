@@ -1,7 +1,5 @@
 #include "rendering/Renderer.h"
 #include "core/RenderSettings.h"
-#include "renderables/Floor.h"
-#include "renderables/SphereObstacle.h"
 #include "rendering/ShadowRenderer.h"
 
 #include <core/Camera.h>
@@ -181,34 +179,6 @@ void loadMatricesToShader(const std::string& shaderName, const TransformStack& s
         wrapper->setUniform("MV", MV);
         wrapper->setUniform("M", M);
         wrapper->setUniform("normalMatrix", normalMatrix);
-    }
-}
-
-void renderFloorAndSphere(Floor* floor, SphereObstacle* sphere,
-                          Camera* camera, TransformStack& transformStack,
-                          const gfx::RenderSettings& params) {
-    ShaderLib* shader = ShaderLib::instance();
-    ShaderLib::ProgramWrapper* phong = (*shader)["Phong"];
-    if (!phong) return;
-    phong->use();
-    transformStack.setGlobal(glm::mat4(1.0f));
-    
-    setupLighting(camera, params);
-    
-    // Render floor
-    if (params.floorVisibility && floor) {
-        transformStack.pushTransform();
-        loadMatricesToShader(transformStack, camera);
-        floor->draw("Phong", transformStack, camera);
-        transformStack.popTransform();
-    }
-    
-    // Render sphere
-    if (params.sphereVisibility && sphere) {
-        transformStack.pushTransform();
-        loadMatricesToShader(transformStack, camera);
-        sphere->draw("Phong", transformStack, camera);
-        transformStack.popTransform();
     }
 }
 

@@ -57,9 +57,7 @@ set(SANDBOX_GE_SOURCES
     src/renderables/FloorRenderable.cpp
     src/renderables/SphereRenderable.cpp
     
-    # Scene objects (legacy)
-    src/Floor.cpp
-    src/SphereObstacle.cpp
+    # Core components
     src/Camera.cpp
     src/Light.cpp
     src/Colour.cpp
@@ -69,9 +67,6 @@ set(SANDBOX_GE_SOURCES
     src/ShaderPathResolver.cpp
     src/LightingHelper.cpp
     src/GeometryFactory.cpp
-    
-    # Legacy (will be refactored)
-    src/GraphicsEngine.cpp
     
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
 )

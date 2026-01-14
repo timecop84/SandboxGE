@@ -7,8 +7,6 @@
 #include <memory>
 #include <string>
 
-class Floor;
-class SphereObstacle;
 class Camera;
 class TransformStack;
 
@@ -40,11 +38,6 @@ void setupLighting(Camera* camera, const gfx::RenderSettings& settings);
 // Load model/view/projection matrices to shader
 void loadMatricesToShader(const TransformStack& stack, Camera* camera);
 void loadMatricesToShader(const std::string& shaderName, const TransformStack& stack, Camera* camera);
-
-// Render only floor and sphere (cloth is rendered by main.cpp using cloth:: API)
-void renderFloorAndSphere(Floor* floor, SphereObstacle* sphere,
-                          Camera* camera, TransformStack& transformStack,
-                          const gfx::RenderSettings& settings);
 
 // Cleanup OpenGL resources
 void cleanup(ClothRenderData& renderData);
