@@ -34,21 +34,45 @@ endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
+    # Core infrastructure
+    src/core/ResourceManager.cpp
+    
+    # Rendering system
+    src/rendering/UBOManager.cpp
+    src/rendering/MeshRenderable.cpp
+    src/rendering/InstancedRenderable.cpp
+    src/rendering/RenderQueue.cpp
+    src/rendering/InstanceBatcher.cpp
+    src/rendering/UnifiedRenderer.cpp
     src/Renderer.cpp
-    src/Floor.cpp
-    src/SphereObstacle.cpp
-    src/GraphicsEngine.cpp
     src/SSAORenderer.cpp
     src/ShadowRenderer.cpp
-    src/ShaderPathResolver.cpp
-    src/LightingHelper.cpp
+    
+    # Materials
+    src/materials/Material.cpp
+    src/materials/ShaderHotReloader.cpp
+    src/ShaderLib_GLAD.cpp
+    
+    # Renderables (new IRenderable implementations)
+    src/renderables/FloorRenderable.cpp
+    src/renderables/SphereRenderable.cpp
+    
+    # Scene objects (legacy)
+    src/Floor.cpp
+    src/SphereObstacle.cpp
     src/Camera.cpp
     src/Light.cpp
-    src/Material.cpp
     src/Colour.cpp
-    src/ShaderLib_GLAD.cpp
-    src/GeometryFactory.cpp
     src/TransformStack.cpp
+    
+    # Utilities
+    src/ShaderPathResolver.cpp
+    src/LightingHelper.cpp
+    src/GeometryFactory.cpp
+    
+    # Legacy (will be refactored)
+    src/GraphicsEngine.cpp
+    
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
 )
 
@@ -114,6 +138,22 @@ else()
     target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} GL)
 endif()
 
+# ===== Test New API =====
+add_executable(TestNewAPI demo/test_new_api.cpp)
+target_include_directories(TestNewAPI PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
+)
+target_link_libraries(TestNewAPI PRIVATE SandboxGE)
+target_compile_definitions(TestNewAPI PRIVATE _USE_MATH_DEFINES)
+
+add_custom_command(TARGET TestNewAPI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+    $<TARGET_FILE_DIR:TestNewAPI>/shaders
+)
+
 option(SANDBOX_GE_BUILD_DEMO "Build SandboxGE demo scene" OFF)
 if(SANDBOX_GE_BUILD_DEMO)
     if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
@@ -149,15 +189,26 @@ if(SANDBOX_GE_BUILD_DEMO)
     target_include_directories(SandboxGE_Demo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
     target_link_libraries(SandboxGE_Demo PRIVATE SandboxGE)
     target_compile_definitions(SandboxGE_Demo PRIVATE _USE_MATH_DEFINES)
-    
-    # Force ImGui to use GLSL 4.20 for WSL compatibility
-    if(NOT WIN32)
-        target_compile_definitions(SandboxGE_Demo PRIVATE IMGUI_IMPL_OPENGL_ES3)
-    endif()
 
     add_custom_command(TARGET SandboxGE_Demo POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders
         $<TARGET_FILE_DIR:SandboxGE_Demo>/shaders
+    )
+    
+    # Unified Renderer Demo (new architecture)
+    add_executable(UnifiedDemo demo/demo_unified.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
+    target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
+    target_link_libraries(UnifiedDemo PRIVATE SandboxGE)
+    target_compile_definitions(UnifiedDemo PRIVATE _USE_MATH_DEFINES)
+    
+    if(NOT WIN32)
+        target_compile_definitions(UnifiedDemo PRIVATE IMGUI_IMPL_OPENGL_ES3)
+    endif()
+    
+    add_custom_command(TARGET UnifiedDemo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+        $<TARGET_FILE_DIR:UnifiedDemo>/shaders
     )
 endif()

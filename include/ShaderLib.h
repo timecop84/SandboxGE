@@ -15,13 +15,8 @@ public:
         COMPUTE = 0x91B9
     };
     
-    /**
-     * @brief Get the singleton instance of ShaderLib
-     * @return Pointer to the ShaderLib instance
-     */
     static ShaderLib* instance();
     
-    // Shader management
     void createShader(const std::string& name);
     void createShaderProgram(const std::string& name);
     void attachShader(const std::string& name, int type);
@@ -32,9 +27,6 @@ public:
     void linkProgramObject(const std::string& name);
     void use(const std::string& name);
     
-    /**
-     * @brief Wrapper class for shader programs to provide operator[] access
-     */
     class ProgramWrapper {
     public:
         explicit ProgramWrapper(unsigned int programId);
@@ -55,14 +47,8 @@ public:
         int getUniformLocation(const std::string& name);
     };
     
-    /**
-     * @brief Access a shader program by name
-     * @param name The name of the shader program
-     * @return Pointer to ProgramWrapper for the program
-     */
     ProgramWrapper* operator[](const std::string& name);
     
-    // Legacy uniform setters for backward compatibility
     void setShaderParam(const std::string& paramName, const glm::mat4& value);
     void setShaderParam(const std::string& paramName, const glm::mat3& value);
     void setShaderParam(const std::string& paramName, const glm::vec4& value);

@@ -1,7 +1,6 @@
 #include "SphereObstacle.h"
 #include "Renderer.h"
 #include <GeometryFactory.h>
-#include <Material.h>
 #include <Matrix.h>
 #include <ShaderLib.h>
 #include <glad/gl.h>

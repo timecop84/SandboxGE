@@ -1,6 +1,3 @@
-/// @file ShadowRenderer.cpp
-/// @brief Shadow mapping implementation with multi-light support
-
 #include "ShadowRenderer.h"
 #include <glad/gl.h>
 #include <Light.h>

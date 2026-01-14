@@ -8,9 +8,6 @@
 
 namespace FlockingGraphics {
 
-//----------------------------------------------------------------------------------------------------------------------
-/// @brief Simple geometry data structure for VAO/VBO management
-//----------------------------------------------------------------------------------------------------------------------
 struct Geometry {
     unsigned int VAO = 0;
     unsigned int VBO = 0;
@@ -24,10 +21,6 @@ struct Geometry {
     void cleanup();
 };
 
-//----------------------------------------------------------------------------------------------------------------------
-/// @brief Geometry factory for creating and managing common geometric shapes
-/// @details Provides optimized geometry creation with caching and reuse
-//----------------------------------------------------------------------------------------------------------------------
 class GeometryFactory {
 public:
     static GeometryFactory& instance();
@@ -46,6 +39,7 @@ public:
     // Common geometry creators
     std::shared_ptr<Geometry> createSphere(float radius = 1.0f, int segments = 32);
     std::shared_ptr<Geometry> createCube(float size = 1.0f);
+    std::shared_ptr<Geometry> createTriangle(float size = 1.0f);
     std::shared_ptr<Geometry> createBoundingBox();
     
     // Management

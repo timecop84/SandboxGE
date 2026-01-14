@@ -7,7 +7,6 @@
 #include <Vector.h>
 #include <string>
 
-/// @brief Floor obstacle for cloth collision visualization
 class Floor {
 public:
   Floor();
