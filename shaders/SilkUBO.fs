@@ -12,19 +12,18 @@ layout(std140, binding = 1) uniform MaterialBlock {
     vec4 ambient;      // 16 bytes
     vec4 diffuse;      // 16 bytes
     vec4 specular;     // 16 bytes
-    float shininess;   // 16 bytes (aligned)
-    float metallic;    // 16 bytes (aligned)
-    float roughness;   // 16 bytes (aligned)
-    int useTexture;    // 16 bytes (aligned)
+    vec4 shininess;    // 16 bytes (aligned)
+    vec4 metallic;     // 16 bytes (aligned)
+    vec4 roughness;    // 16 bytes (aligned)
+    ivec4 useTexture;  // 16 bytes (aligned)
 } materialData;
 
 // Lighting UBO (binding point 2)
 layout(std140, binding = 2) uniform LightingBlock {
     vec4 lightPositions[4];   // xyz = position, w = intensity
     vec4 lightColors[4];      // rgb = color, a = range
-    int lightCount;
-    float ambientStrength;
-    vec2 _padding;
+    ivec4 lightCount;
+    vec4 ambientStrength;
 };
 
 // Shadow uniforms
@@ -100,20 +99,23 @@ float sampleShadowForLight(int lightIndex, vec3 pos, float lightSize) {
 void main() {
     vec3 normal = normalize(fragmentNormal);
     vec3 viewDir = normalize(viewPos - worldPos);
+
+    int lightCountN = lightCount.x;
+    float ambientStrengthN = ambientStrength.x;
     
     // Tangent-based anisotropy (for silk effect)
     vec3 tangent = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
     vec3 bitangent = cross(normal, tangent);
     
     // Ambient with color bleeding (silk tends to have rich colors)
-    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrength * 0.4;
-    vec3 ambient = (materialData.diffuse.rgb + colorBleeding) * ambientStrength;
+    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrengthN * 0.4;
+    vec3 ambient = (materialData.diffuse.rgb + colorBleeding) * ambientStrengthN;
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 diffuseAccum = vec3(0.0);
     vec3 specularAccum = vec3(0.0);
     
-    for (int i = 0; i < lightCount && i < 4; ++i) {
+    for (int i = 0; i < lightCountN && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
         float lightIntensity = lightPositions[i].w;
         vec3 lightColor = lightColors[i].rgb;
@@ -127,7 +129,7 @@ void main() {
         // Calculate shadow with area light size
         float lightSize = 0.5 + lightIntensity * 0.5;
         float shadow = 1.0;
-        if (shadowsEnabled) {
+        if (shadowsEnabled && lightColors[i].a > 0.5) {
             float shadowFactor = sampleShadowForLight(i, worldPos, lightSize);
             shadow = shadowFactor;
             
@@ -144,7 +146,7 @@ void main() {
         float dotTH = dot(tangent, halfVec);
         float dotBH = dot(bitangent, halfVec);
         float aniso = sqrt(max(0.0, 1.0 - dotTH * dotTH - dotBH * dotBH));
-        float spec = pow(aniso, materialData.shininess);
+        float spec = pow(aniso, materialData.shininess.x);
         specularAccum += lightColor * materialData.specular.rgb * spec * attenuation * 0.6 * shadow;
     }
     

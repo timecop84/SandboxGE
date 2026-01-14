@@ -21,8 +21,8 @@
 // Renderables (new API)
 #include "renderables/FloorRenderable.h"
 #include "renderables/SphereRenderable.h"
-#include "renderables/MeshRenderable.h"
-#include "renderables/InstancedRenderable.h"
+#include "rendering/MeshRenderable.h"
+#include "rendering/InstancedRenderable.h"
 
 // Materials
 #include "materials/Material.h"

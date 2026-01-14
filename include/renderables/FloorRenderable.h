@@ -1,14 +1,20 @@
 #pragma once
 
-#include "rendering/IRenderable.h"
-#include "materials/Material.h"
-#include "core/Types.h"
+#include "../rendering/IRenderable.h"
+#include "../materials/Material.h"
+#include "../core/Types.h"
 #include <glm/glm.hpp>
 
 namespace gfx {
 
 class FloorRenderable : public IRenderable {
 public:
+    enum class MaterialPreset {
+        Phong,
+        Silk,
+        SilkPBR
+    };
+
     FloorRenderable(float width, float length, const glm::vec3& position, const glm::vec3& color);
     ~FloorRenderable() override;
     
@@ -23,12 +29,14 @@ public:
     void setPosition(const glm::vec3& position);
     void setColor(const glm::vec3& color);
     void setWireframe(bool wireframe);
+    void setMaterialPreset(MaterialPreset preset);
     
     const glm::vec3& getPosition() const { return m_position; }
     
 private:
     void createGeometry();
     void updateTransform();
+    void rebuildMaterial();
     
     GeometryHandle m_geometry;
     Material* m_material;
@@ -39,6 +47,7 @@ private:
     glm::vec3 m_position;
     glm::vec3 m_color;
     bool m_wireframe;
+    MaterialPreset m_materialPreset = MaterialPreset::Phong;
 };
 
 } // namespace gfx

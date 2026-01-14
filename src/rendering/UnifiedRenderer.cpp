@@ -119,13 +119,21 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
 
 void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
     LightingUBO lighting;
+
+    m_lightSlotCount = 0;
+    for (auto& s : m_lightSlots) s = ShadowLightSlot{};
     
     // Main light (w component = intensity)
     glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
     glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
     lighting.positions[0] = glm::vec4(lightPos, 1.0f);
-    lighting.colors[0] = glm::vec4(lightDiff, 1.0f);
+    lighting.colors[0] = glm::vec4(lightDiff, 1.0f); // a=castsShadow
     lighting.count = 1;
+
+    m_lightSlots[0].position = lightPos;
+    m_lightSlots[0].color = lightDiff;
+    m_lightSlots[0].castsShadow = true;
+    m_lightSlotCount = 1;
     
     for (size_t i = 0; i < settings.lights.size() && lighting.count < 4; ++i) {
         const auto& extraLight = settings.lights[i];
@@ -135,9 +143,16 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
         glm::vec3 col(extraLight.diffuse[0], extraLight.diffuse[1], extraLight.diffuse[2]);
         
         lighting.positions[lighting.count] = glm::vec4(pos, extraLight.intensity);
-        lighting.colors[lighting.count] = glm::vec4(col, 1.0f);
+        lighting.colors[lighting.count] = glm::vec4(col, extraLight.castsShadow ? 1.0f : 0.0f);
+
+        m_lightSlots[lighting.count].position = pos;
+        m_lightSlots[lighting.count].color = col;
+        m_lightSlots[lighting.count].castsShadow = extraLight.castsShadow;
+
         lighting.count++;
     }
+
+    m_lightSlotCount = lighting.count;
     
     lighting.ambientStrength = 0.2f;
     
@@ -179,31 +194,18 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     glm::vec3 sceneCenter(0.0f, 0.0f, 0.0f);
     float sceneRadius = 100.0f;
     
-    // Main light shadow (shadow index 0)
-    glm::vec3 lightPos(settings.lightPosition[0], settings.lightPosition[1], settings.lightPosition[2]);
-    glm::vec3 lightDiff(settings.lightDiffuse[0], settings.lightDiffuse[1], settings.lightDiffuse[2]);
-    Light mainLight(lightPos, Colour(lightDiff.r, lightDiff.g, lightDiff.b, 1.0f));
-    
-    Shadow::beginShadowPass(0, &mainLight, sceneCenter, sceneRadius);
     Shadow::setBias(settings.shadowBias);
     Shadow::setSoftness(settings.shadowSoftness);
-    m_queue.executeShadow(m_context);
-    Shadow::endShadowPass();
-    
-    // Extra lights shadows (shadow indices 1-3)
-    int shadowIndex = 1;
-    for (const auto& extraLight : settings.lights) {
-        if (shadowIndex >= 4) break; // Max 4 shadow maps
-        if (!extraLight.enabled || !extraLight.castsShadow) continue;
-        
-        glm::vec3 pos(extraLight.position[0], extraLight.position[1], extraLight.position[2]);
-        glm::vec3 diff(extraLight.diffuse[0], extraLight.diffuse[1], extraLight.diffuse[2]);
-        Light light(pos, Colour(diff.r, diff.g, diff.b, 1.0f));
-        Shadow::beginShadowPass(shadowIndex, &light, sceneCenter, sceneRadius);
+
+    // Shadow maps are indexed to match LightingUBO slots (0..3)
+    for (int li = 0; li < m_lightSlotCount && li < Shadow::MAX_SHADOW_LIGHTS; ++li) {
+        if (!m_lightSlots[li].castsShadow) continue;
+
+        const auto& slot = m_lightSlots[li];
+        Light light(slot.position, Colour(slot.color.r, slot.color.g, slot.color.b, 1.0f));
+        Shadow::beginShadowPass(li, &light, sceneCenter, sceneRadius);
         m_queue.executeShadow(m_context);
         Shadow::endShadowPass();
-        
-        shadowIndex++;
     }
     
     m_stats.drawCalls += m_queue.getShadowQueueSize();
@@ -222,7 +224,8 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     glEnable(GL_DEPTH_TEST);
     
     for (int i = 0; i < 4; ++i) {
-        m_context.shadowMatrices[i] = Shadow::getLightSpaceMatrix(i);
+        const bool castsShadow = (i < m_lightSlotCount) ? m_lightSlots[i].castsShadow : false;
+        m_context.shadowMatrices[i] = castsShadow ? Shadow::getLightSpaceMatrix(i) : glm::mat4(1.0f);
     }
     
     m_context.viewPosition = m_context.camera ? m_context.camera->getEye() : glm::vec3(0.0f);

@@ -5,7 +5,6 @@
 #include <utils/GeometryFactory.h>
 #include <rendering/ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
 
 namespace gfx {
 
@@ -14,8 +13,7 @@ FloorRenderable::FloorRenderable(float width, float length, const glm::vec3& pos
       m_wireframe(false), m_material(nullptr) {
     createGeometry();
     
-    // Create material
-    m_material = Material::createPhong(m_color);
+        rebuildMaterial();
     
     updateTransform();
 }
@@ -51,25 +49,39 @@ void FloorRenderable::setWireframe(bool wireframe) {
     m_wireframe = wireframe;
 }
 
-void FloorRenderable::render(const RenderContext& context) {
-    static int renderCount = 0;
-    if (renderCount++ < 3) {
-        std::cout << "[FloorRenderable::render] Called, geometry=" << (m_geometry ? "valid" : "null") 
-                  << ", material=" << (m_material ? m_material->getShaderName() : "null") << "\n";
+void FloorRenderable::setMaterialPreset(MaterialPreset preset) {
+    if (m_materialPreset == preset) return;
+    m_materialPreset = preset;
+    rebuildMaterial();
+}
+
+void FloorRenderable::rebuildMaterial() {
+    if (m_material) {
+        delete m_material;
+        m_material = nullptr;
     }
-    
+
+    switch (m_materialPreset) {
+    case MaterialPreset::Silk:
+        m_material = Material::createSilk(m_color);
+        break;
+    case MaterialPreset::SilkPBR:
+        m_material = Material::createSilkPBR(m_color);
+        break;
+    case MaterialPreset::Phong:
+    default:
+        m_material = Material::createPhong(m_color);
+        break;
+    }
+}
+
+void FloorRenderable::render(const RenderContext& context) {
     if (!m_geometry || !m_material || !context.camera) {
         return;
     }
     
     // Bind material
     m_material->bind(context);
-    
-    // Check for GL errors after bind
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR && renderCount <= 5) {
-        std::cerr << "[FloorRenderable] GL error after material bind: " << err << "\n";
-    }
     
     // Build matrix UBO
     MatrixUBO matrixUBO;
@@ -92,12 +104,6 @@ void FloorRenderable::render(const RenderContext& context) {
     
     // Render geometry
     m_geometry->render();
-    
-    // Check for GL errors after render
-    err = glGetError();
-    if (err != GL_NO_ERROR && renderCount <= 5) {
-        std::cerr << "[FloorRenderable] GL error after geometry render: " << err << "\n";
-    }
     
     // Reset wireframe
     if (m_wireframe) {

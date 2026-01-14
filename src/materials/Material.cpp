@@ -56,15 +56,15 @@ void Material::setTexture(const std::string& name, TextureHandle texture) {
 }
 
 void Material::bind(const RenderContext& context) {
-    ShaderLib::instance()->use(m_shaderName);
-    
-    UBOManager::instance()->updateUBO("Material", &m_uboData, sizeof(MaterialUBO));
-    
     auto* prog = (*ShaderLib::instance())[m_shaderName];
     if (!prog) {
         std::cerr << "Material::bind() - Failed to get shader program: " << m_shaderName << std::endl;
         return;
     }
+
+    prog->use();
+
+    UBOManager::instance()->updateUBO("Material", &m_uboData, sizeof(MaterialUBO));
     
     if (context.currentPass == RenderContext::Pass::SCENE) {
         GLint loc = glGetUniformLocation(prog->getProgramId(), "shadowMatrices");

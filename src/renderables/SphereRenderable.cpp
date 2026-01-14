@@ -13,8 +13,7 @@ SphereRenderable::SphereRenderable(float radius, const glm::vec3& position, cons
       m_wireframe(false), m_material(nullptr) {
     createGeometry();
     
-    // Create material
-    m_material = Material::createPhong(m_color);
+        rebuildMaterial();
     
     updateTransform();
 }
@@ -56,9 +55,39 @@ void SphereRenderable::setWireframe(bool wireframe) {
 }
 
 void SphereRenderable::setMaterial(Material* material) {
+    if (m_material == material) return;
+    if (m_material) {
+        delete m_material;
+    }
     m_material = material;
     if (m_material) {
         m_material->setDiffuse(m_color);
+    }
+}
+
+void SphereRenderable::setMaterialPreset(MaterialPreset preset) {
+    if (m_materialPreset == preset) return;
+    m_materialPreset = preset;
+    rebuildMaterial();
+}
+
+void SphereRenderable::rebuildMaterial() {
+    if (m_material) {
+        delete m_material;
+        m_material = nullptr;
+    }
+
+    switch (m_materialPreset) {
+    case MaterialPreset::Silk:
+        m_material = Material::createSilk(m_color);
+        break;
+    case MaterialPreset::SilkPBR:
+        m_material = Material::createSilkPBR(m_color);
+        break;
+    case MaterialPreset::Phong:
+    default:
+        m_material = Material::createPhong(m_color);
+        break;
     }
 }
 

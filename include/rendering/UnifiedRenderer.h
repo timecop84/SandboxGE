@@ -5,6 +5,8 @@
 #include "rendering/RenderQueue.h"
 #include "rendering/InstanceBatcher.h"
 #include <core/RenderSettings.h>
+#include <glm/vec3.hpp>
+#include <array>
 
 namespace gfx {
 
@@ -48,6 +50,15 @@ private:
     void renderCompositePass(const RenderSettings& settings);
     
     void setupLighting(const RenderSettings& settings);
+
+    struct ShadowLightSlot {
+        bool castsShadow = false;
+        glm::vec3 position{0.0f};
+        glm::vec3 color{1.0f};
+    };
+
+    std::array<ShadowLightSlot, 4> m_lightSlots{};
+    int m_lightSlotCount = 0;
 };
 
 } // namespace gfx

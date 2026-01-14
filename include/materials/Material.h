@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/Types.h"
-#include "rendering/UBOStructures.h"
+#include "../core/Types.h"
+#include "../rendering/UBOStructures.h"
 #include <glm/glm.hpp>
 #include <string>
 #include <unordered_map>

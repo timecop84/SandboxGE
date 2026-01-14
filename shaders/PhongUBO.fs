@@ -12,19 +12,18 @@ layout(std140, binding = 1) uniform MaterialBlock {
     vec4 ambient;
     vec4 diffuse;
     vec4 specular;
-    float shininess;
-    float metallic;
-    float roughness;
-    int useTexture;
+    vec4 shininess;
+    vec4 metallic;
+    vec4 roughness;
+    ivec4 useTexture;
 } materialData;
 
 // Lighting UBO (binding point 2)
 layout(std140, binding = 2) uniform LightingBlock {
     vec4 lightPositions[4];
     vec4 lightColors[4];
-    int lightCount;
-    float ambientStrength;
-    vec2 _padding;
+    ivec4 lightCount;
+    vec4 ambientStrength;
 };
 
 // Shadow maps
@@ -78,19 +77,22 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float ligh
 void main() {
     vec3 normal = normalize(fragmentNormal);
     vec3 viewDir = normalize(viewPos - worldPos);
+
+    int lightCountN = lightCount.x;
+    float ambientStrengthN = ambientStrength.x;
     
     // Fake ambient bounce: Use material color to simulate light bouncing off nearby surfaces
     // More saturated materials contribute more color bleeding
-    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrength * 0.3;
+    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrengthN * 0.3;
     
     // Ambient component with color bleeding
-    vec3 ambient = (materialData.ambient.rgb + colorBleeding) * ambientStrength;
+    vec3 ambient = (materialData.ambient.rgb + colorBleeding) * ambientStrengthN;
     
     // Accumulate lighting from all lights
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
     
-    for (int i = 0; i < lightCount; ++i) {
+    for (int i = 0; i < lightCountN; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
         vec3 lightColor = lightColors[i].rgb;
         float lightIntensity = lightPositions[i].w;
@@ -103,7 +105,7 @@ void main() {
         // Use area light approximation with size based on light intensity
         float lightSize = 0.5 + lightIntensity * 0.5; // Larger lights = softer shadows
         float shadow = 1.0;
-        if (shadowsEnabled && i < 4) {
+        if (shadowsEnabled && i < 4 && lightColors[i].a > 0.5) {
             vec4 shadowCoord;
             if (i == 0) shadowCoord = shadowMatrices[0] * vec4(worldPos, 1.0);
             else if (i == 1) shadowCoord = shadowMatrices[1] * vec4(worldPos, 1.0);
@@ -131,7 +133,7 @@ void main() {
         
         // Specular component (Blinn-Phong) with physical attenuation
         vec3 halfVec = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfVec), 0.0), materialData.shininess);
+        float spec = pow(max(dot(normal, halfVec), 0.0), materialData.shininess.x);
         specular += lightColor * materialData.specular.rgb * spec * attenuation * shadow;
     }
     

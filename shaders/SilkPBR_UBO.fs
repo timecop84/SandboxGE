@@ -13,19 +13,18 @@ layout(std140, binding = 1) uniform MaterialBlock {
     vec4 ambient;      // 16 bytes
     vec4 diffuse;      // 16 bytes
     vec4 specular;     // 16 bytes
-    float shininess;   // 16 bytes (aligned)
-    float metallic;    // 16 bytes (aligned)
-    float roughness;   // 16 bytes (aligned)
-    int useTexture;    // 16 bytes (aligned)
+    vec4 shininess;    // 16 bytes
+    vec4 metallic;     // 16 bytes
+    vec4 roughness;    // 16 bytes
+    ivec4 useTexture;  // 16 bytes
 } materialData;
 
 // Lighting UBO (binding point 2)
 layout(std140, binding = 2) uniform LightingBlock {
     vec4 lightPositions[4];   // xyz = position, w = intensity
     vec4 lightColors[4];      // rgb = color, a = range
-    int lightCount;
-    float ambientStrength;
-    vec2 _padding;
+    ivec4 lightCount;
+    vec4 ambientStrength;
 };
 
 // Shadow uniforms
@@ -141,21 +140,24 @@ void main() {
     
     // Material properties from UBO
     vec3 albedo = materialData.diffuse.rgb;
-    float metal = materialData.metallic;
-    float rough = max(materialData.roughness, 0.04);
+    float metal = materialData.metallic.x;
+    float rough = max(materialData.roughness.x, 0.04);
+
+    int lightCountN = lightCount.x;
+    float ambientStrengthN = ambientStrength.x;
     
     // Base reflectivity
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metal);
     
     // Ambient with color bleeding for non-metals
-    vec3 colorBleeding = albedo * (1.0 - metal) * ambientStrength * 0.3;
-    vec3 ambient = (albedo + colorBleeding) * ambientStrength;
+    vec3 colorBleeding = albedo * (1.0 - metal) * ambientStrengthN * 0.3;
+    vec3 ambient = (albedo + colorBleeding) * ambientStrengthN;
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 Lo = vec3(0.0);
     
-    for (int i = 0; i < lightCount && i < 4; ++i) {
+    for (int i = 0; i < lightCountN && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
         float lightIntensity = lightPositions[i].w;
         vec3 lightColor = lightColors[i].rgb;
@@ -170,7 +172,7 @@ void main() {
         // Calculate shadow with area light approximation
         float lightSize = 0.5 + lightIntensity * 0.5;
         float shadow = 1.0;
-        if (shadowsEnabled) {
+        if (shadowsEnabled && lightColors[i].a > 0.5) {
             float shadowFactor = sampleShadowForLight(i, worldPos, lightSize);
             shadow = shadowFactor;
             
