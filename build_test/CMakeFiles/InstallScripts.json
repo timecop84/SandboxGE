@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"E:/dev/SandboxGE/build_test/cmake_install.cmake",
-		"E:/dev/SandboxGE/build_test/glfw/cmake_install.cmake",
-		"E:/dev/SandboxGE/build_test/glfw/src/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

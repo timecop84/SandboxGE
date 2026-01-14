@@ -189,11 +189,6 @@ if(SANDBOX_GE_BUILD_DEMO)
     target_include_directories(SandboxGE_Demo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
     target_link_libraries(SandboxGE_Demo PRIVATE SandboxGE)
     target_compile_definitions(SandboxGE_Demo PRIVATE _USE_MATH_DEFINES)
-    
-    # Force ImGui to use GLSL 4.20 for WSL compatibility
-    if(NOT WIN32)
-        target_compile_definitions(SandboxGE_Demo PRIVATE IMGUI_IMPL_OPENGL_ES3)
-    endif()
 
     add_custom_command(TARGET SandboxGE_Demo POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
