@@ -1,5 +1,5 @@
 #include "core/ResourceManager.h"
-#include <GeometryFactory.h>
+#include <utils/GeometryFactory.h>
 #include <iostream>
 
 namespace gfx {

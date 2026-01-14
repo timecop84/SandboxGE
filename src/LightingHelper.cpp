@@ -1,6 +1,6 @@
-#include "LightingHelper.h"
-#include "ShadowRenderer.h"
-#include <ShaderLib.h>
+#include "utils/LightingHelper.h"
+#include "rendering/ShadowRenderer.h"
+#include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
 

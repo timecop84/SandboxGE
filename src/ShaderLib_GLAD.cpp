@@ -1,5 +1,5 @@
 #include <glad/gl.h>
-#include "ShaderLib.h"
+#include "utils/ShaderLib.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>

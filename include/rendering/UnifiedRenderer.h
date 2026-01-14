@@ -4,7 +4,7 @@
 #include "core/Types.h"
 #include "rendering/RenderQueue.h"
 #include "rendering/InstanceBatcher.h"
-#include <RenderSettings.h>
+#include <core/RenderSettings.h>
 
 namespace gfx {
 

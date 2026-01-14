@@ -1,9 +1,9 @@
 #include "renderables/FloorRenderable.h"
 #include "rendering/UBOManager.h"
 #include "rendering/UBOStructures.h"
-#include <Camera.h>
-#include <GeometryFactory.h>
-#include <ShadowRenderer.h>
+#include <core/Camera.h>
+#include <utils/GeometryFactory.h>
+#include <rendering/ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 

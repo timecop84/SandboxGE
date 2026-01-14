@@ -1,4 +1,4 @@
-#include "ShaderPathResolver.h"
+#include "utils/ShaderPathResolver.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>

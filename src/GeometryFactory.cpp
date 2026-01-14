@@ -1,5 +1,5 @@
 #include <glad/gl.h>
-#include "../include/GeometryFactory.h"
+#include "utils/GeometryFactory.h"
 #include <iostream>
 #include <cmath>
 

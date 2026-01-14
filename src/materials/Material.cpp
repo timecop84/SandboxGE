@@ -2,7 +2,7 @@
 #include "core/ResourceManager.h"
 #include "core/RenderContext.h"
 #include "rendering/UBOManager.h"
-#include <ShaderLib.h>
+#include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <functional>

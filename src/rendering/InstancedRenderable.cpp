@@ -1,8 +1,8 @@
 #include "rendering/InstancedRenderable.h"
 #include "rendering/UBOManager.h"
 #include "rendering/UBOStructures.h"
-#include <Camera.h>
-#include <GeometryFactory.h>
+#include <core/Camera.h>
+#include <utils/GeometryFactory.h>
 #include <iostream>
 
 namespace gfx {

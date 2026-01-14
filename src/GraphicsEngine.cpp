@@ -1,14 +1,14 @@
-#include "GraphicsEngine.h"
-#include "RenderSettings.h"
-#include "ShaderPathResolver.h"
-#include "SSAORenderer.h"
-#include "ShadowRenderer.h"
+#include "rendering/GraphicsEngine.h"
+#include "core/RenderSettings.h"
+#include "utils/ShaderPathResolver.h"
+#include "rendering/SSAORenderer.h"
+#include "rendering/ShadowRenderer.h"
 
-#include <Camera.h>
-#include <Light.h>
-#include <ShaderLib.h>
-#include <TransformStack.h>
-#include <GeometryFactory.h>
+#include <core/Camera.h>
+#include <core/Light.h>
+#include <utils/ShaderLib.h>
+#include <utils/TransformStack.h>
+#include <utils/GeometryFactory.h>
 #include <cstdlib>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>

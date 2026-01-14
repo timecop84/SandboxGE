@@ -1,9 +1,9 @@
 #ifndef SPHEREOBSTACLE_H
 #define SPHEREOBSTACLE_H
-#include <Camera.h>
-#include <Colour.h>
-#include <ShaderLib.h>
-#include <TransformStack.h>
+#include <core/Camera.h>
+#include <core/Colour.h>
+#include <utils/ShaderLib.h>
+#include <utils/TransformStack.h>
 #include <Vector.h>
 #include <vector>
 

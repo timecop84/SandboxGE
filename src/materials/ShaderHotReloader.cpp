@@ -1,5 +1,5 @@
 #include "materials/ShaderHotReloader.h"
-#include <ShaderLib.h>
+#include <utils/ShaderLib.h>
 #include <iostream>
 
 namespace gfx {

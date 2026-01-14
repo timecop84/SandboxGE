@@ -1,9 +1,9 @@
 #ifndef FLOOR_H
 #define FLOOR_H
 
-#include <Camera.h>
-#include <Colour.h>
-#include <TransformStack.h>
+#include <core/Camera.h>
+#include <core/Colour.h>
+#include <utils/TransformStack.h>
 #include <Vector.h>
 #include <string>
 

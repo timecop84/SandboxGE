@@ -1,7 +1,7 @@
-#include "Light.h"
+#include "core/Light.h"
 #include "Vector.h"
-#include "Colour.h"
-#include <ShaderLib.h>
+#include "core/Colour.h"
+#include <utils/ShaderLib.h>
 
 Light::Light()
     : m_position(0.0f, 0.0f, 0.0f)

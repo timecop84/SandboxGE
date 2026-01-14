@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <ShaderLib.h>
+#include <utils/ShaderLib.h>
 
 namespace Lighting {
 

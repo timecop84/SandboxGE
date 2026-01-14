@@ -1,6 +1,6 @@
-#include "ShadowRenderer.h"
+#include "rendering/ShadowRenderer.h"
 #include <glad/gl.h>
-#include <Light.h>
+#include <core/Light.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>

@@ -11,10 +11,10 @@
 #include "renderables/FloorRenderable.h"
 #include "renderables/SphereRenderable.h"
 #include "core/ResourceManager.h"
-#include <Camera.h>
-#include <GeometryFactory.h>
-#include <ShaderLib.h>
-#include <ShaderPathResolver.h>
+#include <core/Camera.h>
+#include <utils/GeometryFactory.h>
+#include <utils/ShaderLib.h>
+#include <utils/ShaderPathResolver.h>
 #include <iostream>
 #include <filesystem>
 

@@ -1,12 +1,12 @@
-#include "Renderer.h"
-#include "RenderSettings.h"
-#include "Floor.h"
-#include "SphereObstacle.h"
-#include "ShadowRenderer.h"
+#include "rendering/Renderer.h"
+#include "core/RenderSettings.h"
+#include "renderables/Floor.h"
+#include "renderables/SphereObstacle.h"
+#include "rendering/ShadowRenderer.h"
 
-#include <Camera.h>
-#include <ShaderLib.h>
-#include <TransformStack.h>
+#include <core/Camera.h>
+#include <utils/ShaderLib.h>
+#include <utils/TransformStack.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <GLFW/glfw3.h>

@@ -1,8 +1,8 @@
-#include "Floor.h"
-#include "Renderer.h"
-#include <GeometryFactory.h>
+#include "renderables/Floor.h"
+#include "rendering/Renderer.h"
+#include <utils/GeometryFactory.h>
 #include <Matrix.h>
-#include <ShaderLib.h>
+#include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/glm.hpp>
 

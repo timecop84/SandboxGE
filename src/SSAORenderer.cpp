@@ -1,7 +1,7 @@
-#include "SSAORenderer.h"
-#include "ShaderPathResolver.h"
+#include "rendering/SSAORenderer.h"
+#include "utils/ShaderPathResolver.h"
 #include <glad/gl.h>
-#include <Camera.h>
+#include <core/Camera.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>

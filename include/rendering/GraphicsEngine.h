@@ -6,10 +6,10 @@
 #include <vector>
 #include <string>
 
-#include "Renderer.h"
-#include "RenderSettings.h"
-#include "Floor.h"
-#include "SphereObstacle.h"
+#include "rendering/Renderer.h"
+#include "core/RenderSettings.h"
+#include "renderables/Floor.h"
+#include "renderables/SphereObstacle.h"
 
 class Camera;
 class TransformStack;
