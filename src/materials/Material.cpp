@@ -2,6 +2,7 @@
 #include "core/ResourceManager.h"
 #include "core/RenderContext.h"
 #include "rendering/UBOManager.h"
+#include "rendering/ShadowRenderer.h"
 #include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -84,6 +85,9 @@ void Material::bind(const RenderContext& context) {
         }
         
         prog->setUniform("viewPos", context.viewPosition);
+
+        prog->setUniform("shadowBias", Shadow::getBias());
+        prog->setUniform("shadowSoftness", Shadow::getSoftness());
     }
     
     int slot = 0;

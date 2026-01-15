@@ -4,6 +4,12 @@
 
 namespace gfx {
 
+enum class MaterialPreset : int {
+    Phong = 0,
+    Silk = 1,
+    SilkPBR = 2,
+};
+
 struct ExtraLight {
     bool enabled = false;
     bool castsShadow = false;
@@ -26,6 +32,12 @@ struct RenderSettings {
     // Shader choice
     bool useSilkShader = true;
     bool usePBRSilk = true;
+
+    // Per-primitive material overrides (preferred over useSilkShader/usePBRSilk when used)
+    MaterialPreset floorMaterial = MaterialPreset::Phong;
+    MaterialPreset sphereMaterial = MaterialPreset::Phong;
+    MaterialPreset clothMaterial = MaterialPreset::SilkPBR;
+    MaterialPreset customMeshMaterial = MaterialPreset::Phong;
 
     // Silk (classic)
     float anisotropyU = 1.2f;

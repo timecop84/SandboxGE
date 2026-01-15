@@ -33,6 +33,8 @@ uniform sampler2D shadowMap2;
 uniform sampler2D shadowMap3;
 uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
+uniform float shadowBias;
+uniform float shadowSoftness;
 
 // View position for specular
 uniform vec3 viewPos;
@@ -56,6 +58,7 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float ligh
     // Estimate penumbra size based on distance (fake area light)
     float receiverDepth = projCoords.z;
     float penumbraSize = lightSize * (receiverDepth / (1.0 - receiverDepth + 0.001));
+    penumbraSize *= max(1.0, shadowSoftness);
     penumbraSize = clamp(penumbraSize, 1.0, 4.0);
     
     // Larger PCF kernel for softer shadows
@@ -113,10 +116,10 @@ void main() {
             else shadowCoord = shadowMatrices[3] * vec4(worldPos, 1.0);
             
             float shadowFactor;
-            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001, lightSize);
-            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001, lightSize);
-            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001, lightSize);
-            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001, lightSize);
+            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, shadowBias, lightSize);
+            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, shadowBias, lightSize);
+            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, shadowBias, lightSize);
+            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, shadowBias, lightSize);
             
             // Softer shadow transition
             shadow = shadowFactor * 0.8 + 0.2;

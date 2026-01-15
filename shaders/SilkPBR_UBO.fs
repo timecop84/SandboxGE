@@ -34,6 +34,8 @@ uniform sampler2D shadowMap2;
 uniform sampler2D shadowMap3;
 uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
+uniform float shadowBias;
+uniform float shadowSoftness;
 
 // View position for correct view direction
 uniform vec3 viewPos;
@@ -59,6 +61,7 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float ligh
     // Penumbra size (area light approximation)
     float receiverDepth = projCoords.z;
     float penumbraSize = lightSize * (receiverDepth / (1.0 - receiverDepth + 0.001));
+    penumbraSize *= max(1.0, shadowSoftness);
     penumbraSize = clamp(penumbraSize, 1.0, 4.0);
     
     float shadow = 0.0;
@@ -118,16 +121,16 @@ float sampleShadowForLight(int lightIndex, vec3 pos, float lightSize) {
     
     if (lightIndex == 0) {
         shadowCoord = shadowMatrices[0] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap0, shadowCoord, 0.001, lightSize);
+        shadowFactor = sampleShadow(shadowMap0, shadowCoord, shadowBias, lightSize);
     } else if (lightIndex == 1) {
         shadowCoord = shadowMatrices[1] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap1, shadowCoord, 0.001, lightSize);
+        shadowFactor = sampleShadow(shadowMap1, shadowCoord, shadowBias, lightSize);
     } else if (lightIndex == 2) {
         shadowCoord = shadowMatrices[2] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap2, shadowCoord, 0.001, lightSize);
+        shadowFactor = sampleShadow(shadowMap2, shadowCoord, shadowBias, lightSize);
     } else if (lightIndex == 3) {
         shadowCoord = shadowMatrices[3] * vec4(pos, 1.0);
-        shadowFactor = sampleShadow(shadowMap3, shadowCoord, 0.001, lightSize);
+        shadowFactor = sampleShadow(shadowMap3, shadowCoord, shadowBias, lightSize);
     }
     
     // Softer shadow transition
