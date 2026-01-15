@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 
-namespace gfx {
+namespace sandbox {
 
 class MeshRenderable : public IRenderable {
 public:
@@ -34,4 +34,4 @@ private:
     void renderInternal(const RenderContext& context, bool shadowPass);
 };
 
-} // namespace gfx
+} // namespace sandbox

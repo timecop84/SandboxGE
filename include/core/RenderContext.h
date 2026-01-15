@@ -6,14 +6,9 @@
 // Forward declarations
 class Camera;
 
-namespace gfx {
+namespace sandbox {
 
-/**
- * @brief Shared context data passed to all render calls
- * 
- * Contains camera, time, shadow matrices, and viewport info.
- * Passed by reference to IRenderable::render() methods.
- */
+// Per-frame context passed into render calls.
 struct RenderContext {
     // Camera for view/projection matrices
     Camera* camera = nullptr;
@@ -46,4 +41,4 @@ struct RenderContext {
     glm::vec3 viewPosition = glm::vec3(0.0f);
 };
 
-} // namespace gfx
+} // namespace sandbox

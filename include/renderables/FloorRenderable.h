@@ -5,7 +5,7 @@
 #include "../core/Types.h"
 #include <glm/glm.hpp>
 
-namespace gfx {
+namespace sandbox {
 
 class FloorRenderable : public IRenderable {
 public:
@@ -50,4 +50,4 @@ private:
     MaterialPreset m_materialPreset = MaterialPreset::Phong;
 };
 
-} // namespace gfx
+} // namespace sandbox

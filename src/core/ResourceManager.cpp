@@ -2,7 +2,7 @@
 #include <utils/GeometryFactory.h>
 #include <iostream>
 
-namespace gfx {
+namespace sandbox {
 
 GpuBuffer::GpuBuffer(size_t bufferSize, GLenum bufferUsage) 
     : size(bufferSize), usage(bufferUsage) {
@@ -127,4 +127,4 @@ void ResourceManager::clearAll() {
     m_textures.clear();
 }
 
-} // namespace gfx
+} // namespace sandbox

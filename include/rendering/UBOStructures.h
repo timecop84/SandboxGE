@@ -2,7 +2,12 @@
 
 #include <glm/glm.hpp>
 
-namespace gfx {
+namespace sandbox {
+
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable:4324) // std140 UBO structs use explicit alignas; MSVC warns about expected padding
+#endif
 
 // Matrix transforms (binding point 0) - std140 layout, 320 bytes total
 struct MatrixUBO {
@@ -32,14 +37,13 @@ struct LightingUBO {
     alignas(16) float ambientStrength;     // 4 bytes
 };
 
-/**
- * @brief UBO for instanced rendering (binding point 3)
- * 
- * std140 layout: array of mat4 with 16-byte alignment
- * Total size: 16384 bytes (256 instances * 64 bytes)
- */
+// Instanced transforms (binding point 3).
 struct InstancesUBO {
     alignas(16) glm::mat4 instanceMatrices[256];  // 16384 bytes
 };
 
-} // namespace gfx
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
+} // namespace sandbox

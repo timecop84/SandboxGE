@@ -1,6 +1,6 @@
 #include "rendering/InstanceBatcher.h"
 
-namespace gfx {
+namespace sandbox {
 
 void InstanceBatcher::add(GeometryHandle geometry, Material* material, const glm::mat4& transform) {
     if (!geometry || !material) {
@@ -55,4 +55,4 @@ size_t InstanceBatcher::getTotalInstances() const {
     return total;
 }
 
-} // namespace gfx
+} // namespace sandbox

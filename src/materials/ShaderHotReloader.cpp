@@ -2,7 +2,7 @@
 #include <utils/ShaderLib.h>
 #include <iostream>
 
-namespace gfx {
+namespace sandbox {
 
 ShaderHotReloader* ShaderHotReloader::s_instance = nullptr;
 
@@ -85,8 +85,6 @@ void ShaderHotReloader::checkForChanges() {
 }
 
 bool ShaderHotReloader::reloadShader(const std::string& shaderName, ShaderFileInfo& info) {
-    ShaderLib* shaderLib = ShaderLib::instance();
-    
     // For now, we don't have a built-in "reload" function in ShaderLib
     // We would need to:
     // 1. Delete the old program
@@ -96,7 +94,7 @@ bool ShaderHotReloader::reloadShader(const std::string& shaderName, ShaderFileIn
     // This is a placeholder - full implementation would require
     // extending ShaderLib with reload capability
     
-    std::cout << "ShaderHotReloader: Shader reload not yet fully implemented" << std::endl;
+    std::cout << "ShaderHotReloader: Shader reload not yet fully implemented for '" << shaderName << "'" << std::endl;
     info.lastError = "Reload functionality pending ShaderLib extension";
     
     // TODO: Implement actual shader recompilation
@@ -125,4 +123,4 @@ std::string ShaderHotReloader::getLastError(const std::string& shaderName) const
     return (it != m_shaders.end()) ? it->second.lastError : "";
 }
 
-} // namespace gfx
+} // namespace sandbox

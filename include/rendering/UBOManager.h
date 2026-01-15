@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace gfx {
+namespace sandbox {
 
 // Manages Uniform Buffer Objects at fixed binding points
 class UBOManager {
@@ -35,4 +35,4 @@ private:
     std::unordered_map<std::string, UBOData> m_ubos;
 };
 
-} // namespace gfx
+} // namespace sandbox

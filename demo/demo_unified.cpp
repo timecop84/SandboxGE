@@ -25,7 +25,7 @@
 #include <memory>
 #include <cmath>
 
-using namespace gfx;
+using namespace sandbox;
 using namespace FlockingGraphics;
 
 namespace {
@@ -171,7 +171,7 @@ struct UISettings {
     glm::vec3 lightDiffuse{1.1f, 1.0f, 0.95f};
     glm::vec3 lightSpecular{1.0f, 1.0f, 1.0f};
     
-    std::vector<gfx::ExtraLight> extraLights;
+    std::vector<sandbox::ExtraLight> extraLights;
 };
 
 void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) {
@@ -240,7 +240,7 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         ImGui::Separator();
         ImGui::Text("Additional Lights");
         if (ImGui::Button("+ Add Light")) {
-            gfx::ExtraLight extra;
+            sandbox::ExtraLight extra;
             extra.enabled = true;
             extra.position[0] = -30.0f + static_cast<float>(settings.extraLights.size()) * 20.0f;
             extra.position[1] = 60.0f;

@@ -35,6 +35,7 @@ ShaderLib* ShaderLib::instance() {
 }
 
 void ShaderLib::createShader(const std::string& name) {
+    (void)name;
     // Individual shaders are created when attachShader is called
 }
 

@@ -1,7 +1,7 @@
 #include "rendering/UBOManager.h"
 #include <iostream>
 
-namespace gfx {
+namespace sandbox {
 
 UBOManager* UBOManager::s_instance = nullptr;
 
@@ -97,4 +97,4 @@ void UBOManager::cleanup() {
     m_ubos.clear();
 }
 
-} // namespace gfx
+} // namespace sandbox

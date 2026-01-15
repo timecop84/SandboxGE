@@ -34,6 +34,8 @@ Light::Light(const Vector& position, const Colour& diffuse, const Colour& specul
     , m_quadraticAttenuation(0.0f)
     , m_enabled(true)
 {
+    (void)specular;
+    (void)lightType;
 }
 
 void Light::setAttenuation(float constant, float linear, float quadratic)

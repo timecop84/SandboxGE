@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gfx {
+namespace sandbox {
 
 // Batches repeated geometry+material combos into instanced draw calls
 class InstanceBatcher {
@@ -51,4 +51,4 @@ private:
     std::vector<InstancedRenderable*> m_finalizedRenderables;
 };
 
-} // namespace gfx
+} // namespace sandbox

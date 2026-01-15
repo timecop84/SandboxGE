@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <functional>
 
-namespace gfx {
+namespace sandbox {
 
 // watches shader files, triggers recompile on changes
 class ShaderHotReloader {
@@ -20,16 +20,10 @@ public:
     
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
-    
-    /**
-     * @brief Set callback for compilation errors
-     */
+
     using ErrorCallback = std::function<void(const std::string& shaderName, const std::string& error)>;
     void setErrorCallback(ErrorCallback callback) { m_errorCallback = callback; }
-    
-    /**
-     * @brief Get last error for a shader
-     */
+
     std::string getLastError(const std::string& shaderName) const;
     
 private:
@@ -53,4 +47,4 @@ private:
     void updateModificationTimes(ShaderFileInfo& info);
 };
 
-} // namespace gfx
+} // namespace sandbox

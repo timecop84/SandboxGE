@@ -2,6 +2,7 @@
 #include "utils/GeometryFactory.h"
 #include <iostream>
 #include <cmath>
+#include <limits>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -24,9 +25,13 @@ void Geometry::render() const {
     if (VAO != 0) {
         glBindVertexArray(VAO);
         if (EBO != 0) {
-            glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            if (indexCount <= static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+                glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, 0);
+            }
         } else {
-            glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+            if (vertexCount <= static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+                glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexCount));
+            }
         }
     }
 }
@@ -101,13 +106,13 @@ std::shared_ptr<Geometry> GeometryFactory::createSphere(float radius, int segmen
     
     // Generate sphere vertices
     for (int i = 0; i <= segments; ++i) {
-        float phi = M_PI * i / segments;
+        float phi = static_cast<float>(M_PI) * static_cast<float>(i) / static_cast<float>(segments);
         for (int j = 0; j <= segments; ++j) {
-            float theta = 2.0f * M_PI * j / segments;
+            float theta = 2.0f * static_cast<float>(M_PI) * static_cast<float>(j) / static_cast<float>(segments);
             
-            float x = radius * sin(phi) * cos(theta);
-            float y = radius * cos(phi);
-            float z = radius * sin(phi) * sin(theta);
+            float x = radius * std::sin(phi) * std::cos(theta);
+            float y = radius * std::cos(phi);
+            float z = radius * std::sin(phi) * std::sin(theta);
             
             // Position
             vertices.push_back(x);

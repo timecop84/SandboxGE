@@ -3,10 +3,11 @@
 #include "../core/Types.h"
 #include "../rendering/UBOStructures.h"
 #include <glm/glm.hpp>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
-namespace gfx {
+namespace sandbox {
 
 // Forward declarations
 struct RenderContext;
@@ -41,6 +42,12 @@ public:
     static Material* createSilk(const glm::vec3& diffuse = glm::vec3(0.8f));
     static Material* createSilkPBR(const glm::vec3& diffuse = glm::vec3(0.8f));
     static Material* createShadow(); // Depth-only material for shadow pass
+
+    // RAII-friendly factory overloads
+    static std::unique_ptr<Material> createPhongUnique(const glm::vec3& diffuse = glm::vec3(0.8f));
+    static std::unique_ptr<Material> createSilkUnique(const glm::vec3& diffuse = glm::vec3(0.8f));
+    static std::unique_ptr<Material> createSilkPBRUnique(const glm::vec3& diffuse = glm::vec3(0.8f));
+    static std::unique_ptr<Material> createShadowUnique();
     
 private:
     std::string m_shaderName;
@@ -52,4 +59,4 @@ private:
     void generateMaterialID();
 };
 
-} // namespace gfx
+} // namespace sandbox

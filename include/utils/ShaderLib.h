@@ -66,11 +66,8 @@ public:
     void bindUniformBlockToBindingPoint(const std::string& programName, const std::string& blockName, unsigned int bindingPoint);
     void updateUBO(const std::string& uboName, const void* data, size_t size, size_t offset = 0);
     void deleteUBO(const std::string& uboName);
-    
-    /**
-     * @brief Get the currently active shader program name
-     * @return Name of the current shader program
-     */
+
+    // Current shader program name (mainly for debugging).
     std::string getCurrentShader() const { return m_currentShader; }
     
 private:

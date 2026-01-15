@@ -18,7 +18,7 @@
 #include <iostream>
 #include <filesystem>
 
-using namespace gfx;
+using namespace sandbox;
 
 // Find shader directory
 std::string findShaderRoot() {

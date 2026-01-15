@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace gfx {
+namespace sandbox {
 
 enum class MaterialPreset : int {
     Phong = 0,
@@ -84,4 +84,4 @@ struct RenderSettings {
     std::vector<ExtraLight> lights;
 };
 
-} // namespace gfx
+} // namespace sandbox

@@ -6,7 +6,7 @@
 #include <rendering/ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-namespace gfx {
+namespace sandbox {
 
 MeshRenderable::MeshRenderable(GeometryHandle geometry, Material* material, const glm::mat4& transform)
     : m_geometry(geometry), m_material(material), m_transform(transform) {}
@@ -14,10 +14,12 @@ MeshRenderable::MeshRenderable(GeometryHandle geometry, Material* material, cons
 MeshRenderable::~MeshRenderable() {}
 
 void MeshRenderable::render(const RenderContext& context) {
+    (void)context;
     renderInternal(context, false);
 }
 
 void MeshRenderable::renderShadow(const RenderContext& context) {
+    (void)context;
     if (!m_geometry) {
         return;
     }
@@ -77,7 +79,7 @@ uint64_t MeshRenderable::getSortKey(const RenderContext& context) const {
     uint16_t depthKey = static_cast<uint16_t>(glm::clamp(depth, 0.0f, 65535.0f));
     
     // Get shader hash (top 24 bits)
-    ShaderHash shaderHash = std::hash<std::string>{}(m_material->getShaderName());
+    ShaderHash shaderHash = static_cast<ShaderHash>(std::hash<std::string>{}(m_material->getShaderName()));
     uint64_t shaderPart = (static_cast<uint64_t>(shaderHash) & 0xFFFFFF) << 40;
     
     // Get material ID (next 24 bits)
@@ -89,4 +91,4 @@ uint64_t MeshRenderable::getSortKey(const RenderContext& context) const {
     return shaderPart | materialPart | depthPart;
 }
 
-} // namespace gfx
+} // namespace sandbox

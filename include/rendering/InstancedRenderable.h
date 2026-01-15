@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-namespace gfx {
+namespace sandbox {
 
 // Repeated geometry with different transforms via glDrawElementsInstanced
 class InstancedRenderable : public IRenderable {
@@ -41,4 +41,4 @@ private:
     void uploadInstanceMatrices(const RenderContext& context);
 };
 
-} // namespace gfx
+} // namespace sandbox

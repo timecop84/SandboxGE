@@ -8,7 +8,7 @@
 #include <glm/vec3.hpp>
 #include <array>
 
-namespace gfx {
+namespace sandbox {
 
 class IRenderable;
 
@@ -61,4 +61,4 @@ private:
     int m_lightSlotCount = 0;
 };
 
-} // namespace gfx
+} // namespace sandbox

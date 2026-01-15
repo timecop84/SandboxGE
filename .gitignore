@@ -12,6 +12,10 @@ imgui.ini
 compile_commands.json
 CMakeUserPresets.json
 
+# Local build logs
+_build.log
+build_last.log
+
 # IDE
 .vscode/
 .idea/

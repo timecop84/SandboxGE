@@ -13,8 +13,24 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <chrono>
+#include <cstdlib>
+#include <string>
 
-namespace gfx {
+namespace sandbox {
+
+static std::string getEnvString(const char* name) {
+#if defined(_MSC_VER)
+    char* value = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&value, &len, name) != 0 || !value) return {};
+    std::string out(value);
+    std::free(value);
+    return out;
+#else
+    const char* value = std::getenv(name);
+    return value ? std::string(value) : std::string{};
+#endif
+}
 
 UnifiedRenderer::UnifiedRenderer() {
 }
@@ -41,8 +57,9 @@ bool UnifiedRenderer::initialize(int width, int height) {
     SSAO::init(width, height);
     
     int shadowSize = 4096;
-    if (const char* env = std::getenv("CS_SHADOW_SIZE")) {
-        int v = std::atoi(env);
+    {
+        const std::string env = getEnvString("CS_SHADOW_SIZE");
+        int v = env.empty() ? 0 : std::atoi(env.c_str());
         if (v >= 512 && v <= 8192) shadowSize = v;
     }
     Shadow::init(shadowSize);
@@ -266,6 +283,7 @@ void UnifiedRenderer::renderSSAOPass(const RenderSettings& settings) {
 }
 
 void UnifiedRenderer::renderCompositePass(const RenderSettings& settings) {
+    (void)settings;
     m_context.currentPass = RenderContext::Pass::COMPOSITE;
     
     SSAO::renderComposite(m_context.camera);
@@ -287,4 +305,4 @@ void UnifiedRenderer::cleanup() {
     UBOManager::instance()->cleanup();
 }
 
-} // namespace gfx
+} // namespace sandbox

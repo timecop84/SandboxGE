@@ -6,7 +6,7 @@
 #include <rendering/ShadowRenderer.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-namespace gfx {
+namespace sandbox {
 
 FloorRenderable::FloorRenderable(float width, float length, const glm::vec3& position, const glm::vec3& color)
     : m_width(width), m_length(length), m_position(position), m_color(color), 
@@ -115,6 +115,7 @@ void FloorRenderable::render(const RenderContext& context) {
 }
 
 void FloorRenderable::renderShadow(const RenderContext& context) {
+    (void)context;
     if (!m_geometry) {
         return;
     }
@@ -139,7 +140,7 @@ uint64_t FloorRenderable::getSortKey(const RenderContext& context) const {
     uint16_t depthKey = static_cast<uint16_t>(glm::clamp(depth, 0.0f, 65535.0f));
     
     // Get shader hash
-    ShaderHash shaderHash = std::hash<std::string>{}(m_material->getShaderName());
+    ShaderHash shaderHash = static_cast<ShaderHash>(std::hash<std::string>{}(m_material->getShaderName()));
     uint64_t shaderPart = (static_cast<uint64_t>(shaderHash) & 0xFFFFFF) << 40;
     
     // Get material ID
@@ -151,4 +152,4 @@ uint64_t FloorRenderable::getSortKey(const RenderContext& context) const {
     return shaderPart | materialPart | depthPart;
 }
 
-} // namespace gfx
+} // namespace sandbox

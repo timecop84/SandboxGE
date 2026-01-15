@@ -2,8 +2,22 @@ cmake_minimum_required(VERSION 3.24)
 
 project(SandboxGE LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+function(sandboxge_enable_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:/W4>
+            $<$<COMPILE_LANGUAGE:CXX>:/permissive->
+            $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
+            $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
+        )
+    else()
+        target_compile_options(${target} PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>
+        )
+    endif()
+endfunction()
 
 # Auto-build GLFW if available in sibling cloth_solver project
 set(_GLFW_SOURCE_DIR "")
@@ -44,7 +58,6 @@ set(SANDBOX_GE_SOURCES
     src/rendering/RenderQueue.cpp
     src/rendering/InstanceBatcher.cpp
     src/rendering/UnifiedRenderer.cpp
-    src/Renderer.cpp
     src/SSAORenderer.cpp
     src/ShadowRenderer.cpp
     
@@ -72,6 +85,9 @@ set(SANDBOX_GE_SOURCES
 )
 
 add_library(SandboxGE STATIC ${SANDBOX_GE_SOURCES})
+
+target_compile_features(SandboxGE PUBLIC cxx_std_17)
+sandboxge_enable_warnings(SandboxGE)
 
 target_include_directories(SandboxGE
     PUBLIC
@@ -180,17 +196,6 @@ if(SANDBOX_GE_BUILD_DEMO)
         ${_SANDBOX_GE_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
-    add_executable(SandboxGE_Demo demo/demo_scene.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
-    target_include_directories(SandboxGE_Demo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
-    target_link_libraries(SandboxGE_Demo PRIVATE SandboxGE)
-    target_compile_definitions(SandboxGE_Demo PRIVATE _USE_MATH_DEFINES)
-
-    add_custom_command(TARGET SandboxGE_Demo POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-        $<TARGET_FILE_DIR:SandboxGE_Demo>/shaders
-    )
-    
     # Unified Renderer Demo (new architecture)
     add_executable(UnifiedDemo demo/demo_unified.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
     target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)

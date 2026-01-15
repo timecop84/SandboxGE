@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <glad/gl.h>
 
-namespace gfx {
+namespace sandbox {
 
 struct GpuBuffer {
     GLuint id = 0;
@@ -70,4 +70,4 @@ private:
     std::unordered_map<std::string, TextureHandle> m_textures;
 };
 
-} // namespace gfx
+} // namespace sandbox

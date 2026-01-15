@@ -5,7 +5,7 @@
 #include <utils/GeometryFactory.h>
 #include <iostream>
 
-namespace gfx {
+namespace sandbox {
 
 InstancedRenderable::InstancedRenderable(GeometryHandle geometry, Material* material)
     : m_geometry(geometry), m_material(material), m_dummyTransform(1.0f) {}
@@ -82,6 +82,7 @@ void InstancedRenderable::renderInternal(const RenderContext& context, bool shad
 }
 
 void InstancedRenderable::uploadInstanceMatrices(const RenderContext& context) {
+    (void)context;
     // Upload instance matrices to Instances UBO
     // Note: We upload up to MAX_INSTANCES_PER_BATCH matrices
     size_t count = std::min(m_instances.size(), static_cast<size_t>(InstanceLimits::MAX_INSTANCES_PER_BATCH));
@@ -102,7 +103,7 @@ uint64_t InstancedRenderable::getSortKey(const RenderContext& context) const {
     uint16_t depthKey = static_cast<uint16_t>(glm::clamp(depth, 0.0f, 65535.0f));
     
     // Get shader hash (top 24 bits)
-    ShaderHash shaderHash = std::hash<std::string>{}(m_material->getShaderName());
+    ShaderHash shaderHash = static_cast<ShaderHash>(std::hash<std::string>{}(m_material->getShaderName()));
     uint64_t shaderPart = (static_cast<uint64_t>(shaderHash) & 0xFFFFFF) << 40;
     
     // Get material ID (next 24 bits)
@@ -114,4 +115,4 @@ uint64_t InstancedRenderable::getSortKey(const RenderContext& context) const {
     return shaderPart | materialPart | depthPart;
 }
 
-} // namespace gfx
+} // namespace sandbox

@@ -1,7 +1,7 @@
 #include "rendering/RenderQueue.h"
 #include <algorithm>
 
-namespace gfx {
+namespace sandbox {
 
 void RenderQueue::submit(IRenderable* renderable, const RenderContext& context, bool castsShadows) {
     if (!renderable) {
@@ -71,4 +71,4 @@ void RenderQueue::clear() {
     m_shadowQueue.clear();
 }
 
-} // namespace gfx
+} // namespace sandbox

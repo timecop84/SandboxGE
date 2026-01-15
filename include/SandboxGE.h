@@ -13,7 +13,6 @@
 // Rendering System
 #include "rendering/IRenderable.h"
 #include "rendering/UnifiedRenderer.h"
-#include "rendering/Renderer.h"
 #include "rendering/RenderQueue.h"
 #include "rendering/ShadowRenderer.h"
 #include "rendering/SSAORenderer.h"
@@ -39,7 +38,6 @@
 
 // To use SandboxGE:
 // 1. Include this single header: #include <SandboxGE.h>
-// 2. Initialize rendering: Renderer::initGL()
-// 3. Create renderables using gfx:: namespace (e.g. gfx::FloorRenderable)
-// 4. Add to RenderQueue and render with UnifiedRenderer
-// 5. For legacy compatibility, Renderer:: namespace functions are still available
+// 2. Create renderables (e.g. sandbox::FloorRenderable)
+// 3. Submit them to a RenderQueue
+// 4. Render using sandbox::UnifiedRenderer

@@ -8,9 +8,10 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <unordered_map>
 
-namespace gfx {
+namespace sandbox {
 
 Material::Material(const std::string& shaderName) 
     : m_shaderName(shaderName) {
@@ -114,7 +115,23 @@ void Material::generateMaterialID() {
 }
 
 Material* Material::createPhong(const glm::vec3& diffuse) {
-    Material* mat = new Material("PhongUBO");  // Use UBO-based shader
+    return createPhongUnique(diffuse).release();
+}
+
+Material* Material::createSilk(const glm::vec3& diffuse) {
+    return createSilkUnique(diffuse).release();
+}
+
+Material* Material::createSilkPBR(const glm::vec3& diffuse) {
+    return createSilkPBRUnique(diffuse).release();
+}
+
+Material* Material::createShadow() {
+    return createShadowUnique().release();
+}
+
+std::unique_ptr<Material> Material::createPhongUnique(const glm::vec3& diffuse) {
+    auto mat = std::make_unique<Material>("PhongUBO");
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.3f);
     mat->setSpecular(glm::vec3(0.5f));
@@ -122,8 +139,8 @@ Material* Material::createPhong(const glm::vec3& diffuse) {
     return mat;
 }
 
-Material* Material::createSilk(const glm::vec3& diffuse) {
-    Material* mat = new Material("SilkUBO");  // Use UBO-based shader
+std::unique_ptr<Material> Material::createSilkUnique(const glm::vec3& diffuse) {
+    auto mat = std::make_unique<Material>("SilkUBO");
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.2f);
     mat->setSpecular(glm::vec3(0.8f));
@@ -131,8 +148,8 @@ Material* Material::createSilk(const glm::vec3& diffuse) {
     return mat;
 }
 
-Material* Material::createSilkPBR(const glm::vec3& diffuse) {
-    Material* mat = new Material("SilkPBR_UBO");  // Use UBO-based shader
+std::unique_ptr<Material> Material::createSilkPBRUnique(const glm::vec3& diffuse) {
+    auto mat = std::make_unique<Material>("SilkPBR_UBO");
     mat->setDiffuse(diffuse);
     mat->setAmbient(diffuse * 0.2f);
     mat->setMetallic(0.1f);
@@ -140,11 +157,10 @@ Material* Material::createSilkPBR(const glm::vec3& diffuse) {
     return mat;
 }
 
-Material* Material::createShadow() {
-    Material* mat = new Material("Shadow");
-    // Shadow material has minimal properties (depth-only)
+std::unique_ptr<Material> Material::createShadowUnique() {
+    auto mat = std::make_unique<Material>("Shadow");
     mat->setDiffuse(glm::vec3(0.0f));
     return mat;
 }
 
-} // namespace gfx
+} // namespace sandbox

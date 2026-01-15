@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace gfx {
+namespace sandbox {
 
 struct RenderCommand {
     IRenderable* renderable = nullptr;
@@ -26,25 +26,17 @@ public:
     
     void sortMain();
     void sortShadow();
-    
-    /**
-     * @brief Execute main queue rendering
-     */
+
+    // Execute main queue rendering.
     void executeMain(RenderContext& context);
-    
-    /**
-     * @brief Execute shadow queue rendering
-     */
+
+    // Execute shadow queue rendering.
     void executeShadow(RenderContext& context);
-    
-    /**
-     * @brief Clear all queues
-     */
+
+    // Clear all queues.
     void clear();
-    
-    /**
-     * @brief Get queue sizes for debugging
-     */
+
+    // Queue sizes (mostly for debugging).
     size_t getMainQueueSize() const { return m_mainQueue.size(); }
     size_t getShadowQueueSize() const { return m_shadowQueue.size(); }
     
@@ -53,4 +45,4 @@ private:
     std::vector<RenderCommand> m_shadowQueue;
 };
 
-} // namespace gfx
+} // namespace sandbox

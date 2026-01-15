@@ -8,7 +8,7 @@ namespace FlockingGraphics {
     struct Geometry;
 }
 
-namespace gfx {
+namespace sandbox {
 
 // Forward declarations
 class Material;
@@ -36,4 +36,4 @@ namespace InstanceLimits {
     constexpr uint32_t MAX_INSTANCES_PER_BATCH = 256;
 }
 
-} // namespace gfx
+} // namespace sandbox

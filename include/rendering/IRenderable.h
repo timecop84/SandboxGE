@@ -3,7 +3,7 @@
 #include "core/RenderContext.h"
 #include <glm/glm.hpp>
 
-namespace gfx {
+namespace sandbox {
 
 class Material;
 
@@ -25,11 +25,9 @@ public:
     virtual uint64_t getSortKey(const RenderContext& context) const = 0;
     
     virtual bool isInstanced() const { return false; }
-    
-    /**
-     * @brief Should this object cast shadows?
-     */
+
+    // Default: cast shadows.
     virtual bool castsShadows() const { return true; }
 };
 
-} // namespace gfx
+} // namespace sandbox
