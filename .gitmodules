@@ -1,0 +1,3 @@
+[submodule "external/cloth_math"]
+	path = external/MathLib
+	url = https://github.com/timecop84/MathLib.git

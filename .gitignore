@@ -1,7 +1,6 @@
 # Build directories
 build/
-build_cuda/
-build_wsl/
+build_test/
 
 # Executables
 *.exe
@@ -12,6 +11,10 @@ build_wsl/
 imgui.ini
 compile_commands.json
 CMakeUserPresets.json
+
+# Local build logs
+_build.log
+build_last.log
 
 # IDE
 .vscode/

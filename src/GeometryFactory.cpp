@@ -1,7 +1,8 @@
 #include <glad/gl.h>
-#include "../include/GeometryFactory.h"
+#include "utils/GeometryFactory.h"
 #include <iostream>
 #include <cmath>
+#include <limits>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -24,9 +25,13 @@ void Geometry::render() const {
     if (VAO != 0) {
         glBindVertexArray(VAO);
         if (EBO != 0) {
-            glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            if (indexCount <= static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+                glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, 0);
+            }
         } else {
-            glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+            if (vertexCount <= static_cast<size_t>(std::numeric_limits<GLsizei>::max())) {
+                glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexCount));
+            }
         }
     }
 }
@@ -101,13 +106,13 @@ std::shared_ptr<Geometry> GeometryFactory::createSphere(float radius, int segmen
     
     // Generate sphere vertices
     for (int i = 0; i <= segments; ++i) {
-        float phi = M_PI * i / segments;
+        float phi = static_cast<float>(M_PI) * static_cast<float>(i) / static_cast<float>(segments);
         for (int j = 0; j <= segments; ++j) {
-            float theta = 2.0f * M_PI * j / segments;
+            float theta = 2.0f * static_cast<float>(M_PI) * static_cast<float>(j) / static_cast<float>(segments);
             
-            float x = radius * sin(phi) * cos(theta);
-            float y = radius * cos(phi);
-            float z = radius * sin(phi) * sin(theta);
+            float x = radius * std::sin(phi) * std::cos(theta);
+            float y = radius * std::cos(phi);
+            float z = radius * std::sin(phi) * std::sin(theta);
             
             // Position
             vertices.push_back(x);
@@ -196,6 +201,55 @@ std::shared_ptr<Geometry> GeometryFactory::createCube(float size) {
         12, 13, 14, 12, 14, 15,   // Right face
         16, 17, 18, 16, 18, 19,   // Top face
         20, 21, 22, 20, 22, 23    // Bottom face
+    };
+    
+    return createGeometry(name, vertices, indices);
+}
+
+std::shared_ptr<Geometry> GeometryFactory::createTriangle(float size) {
+    std::string name = "triangle_" + std::to_string(size);
+    
+    // Check if already exists
+    auto existing = getGeometry(name);
+    if (existing) {
+        return existing;
+    }
+    
+    float half = size / 2.0f;
+    float height = size * 0.866f; // sqrt(3)/2 for equilateral triangle
+    
+    // Create a 3D pyramid/tetrahedron-style triangle
+    std::vector<float> vertices = {
+        // Base triangle (y = 0)
+        -half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back left
+         half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back right
+         0.0f, 0.0f,  height*2.0f/3.0f,  0.0f, -1.0f, 0.0f,  // front
+        
+        // Apex (forms pyramid)
+         0.0f, height, 0.0f,  0.0f, 1.0f, 0.0f,  // top point
+        
+        // Side faces (need separate vertices for proper normals)
+        // Front-left face
+        -half, 0.0f, -height/3.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  -0.866f, 0.5f, -0.5f,
+        
+        // Front-right face
+         half, 0.0f, -height/3.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  0.866f, 0.5f, -0.5f,
+        
+        // Back face
+        -half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
+         half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
+         0.0f, height, 0.0f,  0.0f, 0.5f, -0.866f,
+    };
+    
+    std::vector<unsigned int> indices = {
+        0, 1, 2,     // Base
+        4, 5, 6,     // Front-left face
+        7, 8, 9,     // Front-right face
+        10, 11, 12   // Back face
     };
     
     return createGeometry(name, vertices, indices);

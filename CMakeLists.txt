@@ -2,8 +2,22 @@ cmake_minimum_required(VERSION 3.24)
 
 project(SandboxGE LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+function(sandboxge_enable_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:/W4>
+            $<$<COMPILE_LANGUAGE:CXX>:/permissive->
+            $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
+            $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
+        )
+    else()
+        target_compile_options(${target} PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>
+        )
+    endif()
+endfunction()
 
 # Auto-build GLFW if available in sibling cloth_solver project
 set(_GLFW_SOURCE_DIR "")
@@ -31,28 +45,62 @@ endif()
 if(NOT DEFINED SANDBOX_GE_EXTRA_INCLUDE_DIRS)
     set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "" CACHE STRING "Optional include paths for external math/helpers (e.g., Vector/Matrix).")
 endif()
+if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/MathLib/include")
+        set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/external/MathLib/include")
+    endif()
+endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
-    src/Renderer.cpp
-    src/Floor.cpp
-    src/SphereObstacle.cpp
-    src/GraphicsEngine.cpp
+    # Core infrastructure
+    src/core/ResourceManager.cpp
+    
+    # Rendering system
+    src/rendering/UBOManager.cpp
+    src/rendering/MeshRenderable.cpp
+    src/rendering/InstancedRenderable.cpp
+    src/rendering/RenderQueue.cpp
+    src/rendering/InstanceBatcher.cpp
+    src/rendering/UnifiedRenderer.cpp
     src/SSAORenderer.cpp
     src/ShadowRenderer.cpp
-    src/ShaderPathResolver.cpp
-    src/LightingHelper.cpp
+    
+    # Materials
+    src/materials/Material.cpp
+    src/materials/ShaderHotReloader.cpp
+    src/ShaderLib_GLAD.cpp
+    
+    # Renderables (new IRenderable implementations)
+    src/renderables/FloorRenderable.cpp
+    src/renderables/SphereRenderable.cpp
+    
+    # Core components
     src/Camera.cpp
     src/Light.cpp
-    src/Material.cpp
     src/Colour.cpp
-    src/ShaderLib_GLAD.cpp
-    src/GeometryFactory.cpp
     src/TransformStack.cpp
+    
+    # Utilities
+    src/ShaderPathResolver.cpp
+    src/LightingHelper.cpp
+    src/GeometryFactory.cpp
+    src/rhi/DeviceGL.cpp
+    
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
 )
 
 add_library(SandboxGE STATIC ${SANDBOX_GE_SOURCES})
+
+if(NOT DEFINED SANDBOX_GE_CXX_STANDARD)
+    set(SANDBOX_GE_CXX_STANDARD "20" CACHE STRING "C++ standard to use (20 or 23).")
+endif()
+if(SANDBOX_GE_CXX_STANDARD STREQUAL "23")
+    target_compile_features(SandboxGE PUBLIC cxx_std_23)
+else()
+    target_compile_features(SandboxGE PUBLIC cxx_std_20)
+endif()
+sandboxge_enable_warnings(SandboxGE)
 
 target_include_directories(SandboxGE
     PUBLIC
@@ -114,6 +162,22 @@ else()
     target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} GL)
 endif()
 
+# ===== Test New API =====
+add_executable(TestNewAPI demo/test_new_api.cpp)
+target_include_directories(TestNewAPI PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
+)
+target_link_libraries(TestNewAPI PRIVATE SandboxGE)
+target_compile_definitions(TestNewAPI PRIVATE _USE_MATH_DEFINES)
+
+add_custom_command(TARGET TestNewAPI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+    $<TARGET_FILE_DIR:TestNewAPI>/shaders
+)
+
 option(SANDBOX_GE_BUILD_DEMO "Build SandboxGE demo scene" OFF)
 if(SANDBOX_GE_BUILD_DEMO)
     if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
@@ -145,19 +209,19 @@ if(SANDBOX_GE_BUILD_DEMO)
         ${_SANDBOX_GE_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
-    add_executable(SandboxGE_Demo demo/demo_scene.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
-    target_include_directories(SandboxGE_Demo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
-    target_link_libraries(SandboxGE_Demo PRIVATE SandboxGE)
-    target_compile_definitions(SandboxGE_Demo PRIVATE _USE_MATH_DEFINES)
+    # Unified Renderer Demo (new architecture)
+    add_executable(UnifiedDemo demo/demo_unified.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
+    target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
+    target_link_libraries(UnifiedDemo PRIVATE SandboxGE)
+    target_compile_definitions(UnifiedDemo PRIVATE _USE_MATH_DEFINES)
     
-    # Force ImGui to use GLSL 4.20 for WSL compatibility
     if(NOT WIN32)
-        target_compile_definitions(SandboxGE_Demo PRIVATE IMGUI_IMPL_OPENGL_ES3)
+        target_compile_definitions(UnifiedDemo PRIVATE IMGUI_IMPL_OPENGL_ES3)
     endif()
-
-    add_custom_command(TARGET SandboxGE_Demo POST_BUILD
+    
+    add_custom_command(TARGET UnifiedDemo POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-        $<TARGET_FILE_DIR:SandboxGE_Demo>/shaders
+        $<TARGET_FILE_DIR:UnifiedDemo>/shaders
     )
 endif()

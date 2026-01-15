@@ -1,6 +1,8 @@
-#include "Camera.h"
+#include "core/Camera.h"
 #include "Vector.h"
 #include <iostream>
+
+namespace sandbox {
 
 Camera::Camera(const glm::vec3 &from, const glm::vec3 &to, const glm::vec3 &up,
                ProjectionType type)
@@ -124,3 +126,5 @@ void Camera::updateProjectionMatrix() {
         glm::ortho(m_left, m_right, m_bottom, m_top, m_znear, m_zfar);
   }
 }
+
+} // namespace sandbox

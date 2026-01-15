@@ -1,9 +1,8 @@
-/// @file ShadowRenderer.cpp
-/// @brief Shadow mapping implementation with multi-light support
-
-#include "ShadowRenderer.h"
+#include "rendering/ShadowRenderer.h"
+#include "core/ResourceManager.h"
+#include "rhi/Device.h"
 #include <glad/gl.h>
-#include <Light.h>
+#include <core/Light.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -15,7 +14,7 @@
 #include <windows.h>
 #endif
 
-namespace Shadow {
+namespace sandbox::Shadow {
 
 namespace {
     // State
@@ -29,7 +28,9 @@ namespace {
     
     // Multi-shadow map FBOs and textures
     GLuint s_shadowFBOs[MAX_SHADOW_LIGHTS] = {0};
-    GLuint s_shadowMapTexs[MAX_SHADOW_LIGHTS] = {0};
+    std::unique_ptr<rhi::Texture> s_shadowMapTexs[MAX_SHADOW_LIGHTS];
+    std::unique_ptr<rhi::Sampler> s_shadowSampler;
+    rhi::Device* s_device = nullptr;
     
     // Shader program
     GLuint s_shadowProgram = 0;
@@ -139,15 +140,30 @@ namespace {
         return prog;
     }
     
+    GLuint toGlHandle(const rhi::Texture* tex) {
+        if (!tex) return 0;
+        return static_cast<GLuint>(tex->nativeHandle());
+    }
+
     bool createShadowMap(int index) {
         glGenFramebuffers(1, &s_shadowFBOs[index]);
         glBindFramebuffer(GL_FRAMEBUFFER, s_shadowFBOs[index]);
-        
-        glGenTextures(1, &s_shadowMapTexs[index]);
-        glBindTexture(GL_TEXTURE_2D, s_shadowMapTexs[index]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F,
-                     s_shadowMapSize, s_shadowMapSize, 0,
-                     GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
+        if (!s_device) {
+            s_device = ResourceManager::instance()->getDevice();
+        }
+
+        s_shadowMapTexs[index] = s_device
+            ? s_device->createTexture(s_shadowMapSize, s_shadowMapSize, rhi::TextureFormat::Depth32F)
+            : nullptr;
+
+        const GLuint texHandle = toGlHandle(s_shadowMapTexs[index].get());
+        if (texHandle == 0) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return false;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, texHandle);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -158,7 +174,7 @@ namespace {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, s_shadowMapTexs[index], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texHandle, 0);
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
         
@@ -177,6 +193,24 @@ bool init(int shadowMapSize) {
     if (s_initialized) return true;
     
     s_shadowMapSize = shadowMapSize;
+
+    if (!s_device) {
+        s_device = ResourceManager::instance()->getDevice();
+    }
+    if (s_device && !s_shadowSampler) {
+        rhi::SamplerDesc shadowSampler;
+        shadowSampler.minFilter = rhi::SamplerFilter::Linear;
+        shadowSampler.magFilter = rhi::SamplerFilter::Linear;
+        shadowSampler.wrapS = rhi::SamplerWrap::ClampToBorder;
+        shadowSampler.wrapT = rhi::SamplerWrap::ClampToBorder;
+        shadowSampler.compareEnabled = true;
+        shadowSampler.compareOp = rhi::SamplerCompareOp::Lequal;
+        shadowSampler.borderColor[0] = 1.0f;
+        shadowSampler.borderColor[1] = 1.0f;
+        shadowSampler.borderColor[2] = 1.0f;
+        shadowSampler.borderColor[3] = 1.0f;
+        s_shadowSampler = s_device->createSampler(shadowSampler);
+    }
     
     // Create shadow shader
     s_shadowProgram = createProgram("shaders/Shadow.vs", "shaders/Shadow.fs");
@@ -196,18 +230,21 @@ bool init(int shadowMapSize) {
     }
     
     s_initialized = true;
-    std::cout << "Multi-shadow mapping initialized (" << MAX_SHADOW_LIGHTS << " maps @ " 
-              << s_shadowMapSize << "x" << s_shadowMapSize << ")" << std::endl;
     return true;
 }
 
 void cleanup() {
     for (int i = 0; i < MAX_SHADOW_LIGHTS; ++i) {
         if (s_shadowFBOs[i]) { glDeleteFramebuffers(1, &s_shadowFBOs[i]); s_shadowFBOs[i] = 0; }
-        if (s_shadowMapTexs[i]) { glDeleteTextures(1, &s_shadowMapTexs[i]); s_shadowMapTexs[i] = 0; }
+        s_shadowMapTexs[i].reset();
     }
+    s_shadowSampler.reset();
     if (s_shadowProgram) { glDeleteProgram(s_shadowProgram); s_shadowProgram = 0; }
     s_initialized = false;
+}
+
+void setDevice(rhi::Device* device) {
+    s_device = device;
 }
 
 void beginShadowPass(int lightIndex, Light* light, const glm::vec3& sceneCenter, float sceneRadius) {
@@ -249,10 +286,21 @@ glm::mat4 getLightSpaceMatrix(int lightIndex) {
     return glm::mat4(1.0f);
 }
 
-unsigned int getShadowMapTexture(int lightIndex) {
-    if (lightIndex >= 0 && lightIndex < MAX_SHADOW_LIGHTS)
-        return s_shadowMapTexs[lightIndex];
-    return 0;
+const rhi::Texture* getShadowMapTexture(int lightIndex) {
+    if (lightIndex >= 0 && lightIndex < MAX_SHADOW_LIGHTS) {
+        return s_shadowMapTexs[lightIndex].get();
+    }
+    return nullptr;
+}
+
+void bindShadowMap(int lightIndex, int slot) {
+    const rhi::Texture* texture = getShadowMapTexture(lightIndex);
+    if (texture) {
+        texture->bind(static_cast<std::uint32_t>(slot));
+        if (s_shadowSampler) {
+            s_shadowSampler->bind(static_cast<std::uint32_t>(slot));
+        }
+    }
 }
 
 GLuint getShadowProgram() {
@@ -275,4 +323,4 @@ float getSoftness() { return s_softness; }
 float getBias() { return s_bias; }
 int getMapSize() { return s_shadowMapSize; }
 
-} // namespace Shadow
+} // namespace sandbox::Shadow

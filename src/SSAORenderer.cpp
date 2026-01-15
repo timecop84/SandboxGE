@@ -1,10 +1,9 @@
-/// @file SSAORenderer.cpp
-/// @brief Screen-Space Ambient Occlusion implementation
-
-#include "SSAORenderer.h"
-#include "ShaderPathResolver.h"
+#include "rendering/SSAORenderer.h"
+#include "core/ResourceManager.h"
+#include "rhi/Device.h"
+#include "utils/ShaderPathResolver.h"
 #include <glad/gl.h>
-#include <Camera.h>
+#include <core/Camera.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
@@ -12,47 +11,43 @@
 #include <cmath>
 #include <iostream>
 
-namespace SSAO {
+namespace sandbox::SSAO {
 
 namespace {
-    // State
     bool s_initialized = false;
     bool s_enabled = true;
     int s_width = 0;
     int s_height = 0;
     
-    // Parameters
     float s_radius = 2.0f;
     float s_bias = 0.025f;
     float s_intensity = 1.5f;
     
-    // Shader programs (we manage these ourselves)
     GLuint s_ssaoProgram = 0;
     GLuint s_blurProgram = 0;
     GLuint s_compositeProgram = 0;
     
-    // Framebuffers
     GLuint s_sceneFBO = 0;
-    GLuint s_sceneColorTex = 0;
-    GLuint s_sceneDepthTex = 0;
+    std::unique_ptr<rhi::Texture> s_sceneColorTex;
+    std::unique_ptr<rhi::Texture> s_sceneDepthTex;
     
     GLuint s_ssaoFBO = 0;
-    GLuint s_ssaoColorTex = 0;
+    std::unique_ptr<rhi::Texture> s_ssaoColorTex;
     
     GLuint s_ssaoBlurFBO = 0;
-    GLuint s_ssaoBlurTex = 0;
+    std::unique_ptr<rhi::Texture> s_ssaoBlurTex;
     
-    // Noise texture for random rotation
     GLuint s_noiseTex = 0;
     
-    // Sample kernel
     std::vector<glm::vec3> s_kernel;
+
+    rhi::Device* s_device = nullptr;
+    std::unique_ptr<rhi::Sampler> s_linearClampSampler;
+    std::unique_ptr<rhi::Sampler> s_nearestClampSampler;
     
-    // Fullscreen quad VAO
     GLuint s_quadVAO = 0;
     GLuint s_quadVBO = 0;
     
-    // Compile shader
     GLuint compileShader(GLenum type, const std::string& source) {
         GLuint shader = glCreateShader(type);
         const char* src = source.c_str();
@@ -71,7 +66,6 @@ namespace {
         return shader;
     }
     
-    // Link program
     GLuint linkProgram(GLuint vs, GLuint fs) {
         GLuint program = glCreateProgram();
         glAttachShader(program, vs);
@@ -90,7 +84,6 @@ namespace {
         return program;
     }
     
-    // Create shader program from files
     GLuint createProgram(const std::string& vsFile, const std::string& fsFile) {
         std::string vsSource = ShaderPath::loadSource(vsFile);
         std::string fsSource = ShaderPath::loadSource(fsFile);
@@ -110,7 +103,6 @@ namespace {
         return prog;
     }
 
-    // Generate hemisphere sample kernel
     void generateKernel() {
         std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
         std::default_random_engine generator(42);
@@ -127,7 +119,6 @@ namespace {
             sample = glm::normalize(sample);
             sample *= randomFloats(generator);
             
-            // Scale samples to be closer to origin (more samples near fragment)
             float scale = float(i) / 64.0f;
             scale = 0.1f + scale * scale * 0.9f;  // lerp(0.1, 1.0, scale^2)
             sample *= scale;
@@ -136,7 +127,6 @@ namespace {
         }
     }
     
-    // Generate noise texture for random rotation
     void generateNoiseTexture() {
         std::uniform_real_distribution<float> randomFloats(0.0f, 1.0f);
         std::default_random_engine generator(123);
@@ -161,7 +151,6 @@ namespace {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
     
-    // Create fullscreen quad
     void createQuad() {
         float quadVertices[] = {
             // positions   // texcoords
@@ -187,64 +176,101 @@ namespace {
         glBindVertexArray(0);
     }
     
+    GLuint toGlHandle(const rhi::Texture* tex) {
+        if (!tex) return 0;
+        return static_cast<GLuint>(tex->nativeHandle());
+    }
+
     void createFramebuffers(int width, int height) {
+        if (!s_device) {
+            s_device = ResourceManager::instance()->getDevice();
+        }
+        if (!s_device) {
+            std::cerr << "SSAO: No RHI device available for textures" << std::endl;
+            return;
+        }
+        if (!s_linearClampSampler) {
+            rhi::SamplerDesc linearClamp;
+            linearClamp.minFilter = rhi::SamplerFilter::Linear;
+            linearClamp.magFilter = rhi::SamplerFilter::Linear;
+            linearClamp.wrapS = rhi::SamplerWrap::ClampToEdge;
+            linearClamp.wrapT = rhi::SamplerWrap::ClampToEdge;
+            s_linearClampSampler = s_device->createSampler(linearClamp);
+        }
+        if (!s_nearestClampSampler) {
+            rhi::SamplerDesc nearestClamp;
+            nearestClamp.minFilter = rhi::SamplerFilter::Nearest;
+            nearestClamp.magFilter = rhi::SamplerFilter::Nearest;
+            nearestClamp.wrapS = rhi::SamplerWrap::ClampToEdge;
+            nearestClamp.wrapT = rhi::SamplerWrap::ClampToEdge;
+            s_nearestClampSampler = s_device->createSampler(nearestClamp);
+        }
+
         // Scene FBO with color and depth
         glGenFramebuffers(1, &s_sceneFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, s_sceneFBO);
         
         // Color texture
-        glGenTextures(1, &s_sceneColorTex);
-        glBindTexture(GL_TEXTURE_2D, s_sceneColorTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
+        s_sceneColorTex = s_device
+            ? s_device->createTexture(width, height, rhi::TextureFormat::RGB16F)
+            : nullptr;
+        GLuint sceneColorHandle = toGlHandle(s_sceneColorTex.get());
+        glBindTexture(GL_TEXTURE_2D, sceneColorHandle);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_sceneColorTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneColorHandle, 0);
         
         // Depth texture (for SSAO sampling)
-        glGenTextures(1, &s_sceneDepthTex);
-        glBindTexture(GL_TEXTURE_2D, s_sceneDepthTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+        s_sceneDepthTex = s_device
+            ? s_device->createTexture(width, height, rhi::TextureFormat::Depth32F)
+            : nullptr;
+        GLuint sceneDepthHandle = toGlHandle(s_sceneDepthTex.get());
+        glBindTexture(GL_TEXTURE_2D, sceneDepthHandle);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, s_sceneDepthTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepthHandle, 0);
         
         // SSAO FBO (single channel)
         glGenFramebuffers(1, &s_ssaoFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, s_ssaoFBO);
         
-        glGenTextures(1, &s_ssaoColorTex);
-        glBindTexture(GL_TEXTURE_2D, s_ssaoColorTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_FLOAT, nullptr);
+        s_ssaoColorTex = s_device
+            ? s_device->createTexture(width, height, rhi::TextureFormat::R32F)
+            : nullptr;
+        GLuint ssaoColorHandle = toGlHandle(s_ssaoColorTex.get());
+        glBindTexture(GL_TEXTURE_2D, ssaoColorHandle);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_ssaoColorTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorHandle, 0);
         
         // SSAO Blur FBO
         glGenFramebuffers(1, &s_ssaoBlurFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, s_ssaoBlurFBO);
         
-        glGenTextures(1, &s_ssaoBlurTex);
-        glBindTexture(GL_TEXTURE_2D, s_ssaoBlurTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_FLOAT, nullptr);
+        s_ssaoBlurTex = s_device
+            ? s_device->createTexture(width, height, rhi::TextureFormat::R32F)
+            : nullptr;
+        GLuint ssaoBlurHandle = toGlHandle(s_ssaoBlurTex.get());
+        glBindTexture(GL_TEXTURE_2D, ssaoBlurHandle);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_ssaoBlurTex, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoBlurHandle, 0);
         
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
     
     void deleteFramebuffers() {
         if (s_sceneFBO) { glDeleteFramebuffers(1, &s_sceneFBO); s_sceneFBO = 0; }
-        if (s_sceneColorTex) { glDeleteTextures(1, &s_sceneColorTex); s_sceneColorTex = 0; }
-        if (s_sceneDepthTex) { glDeleteTextures(1, &s_sceneDepthTex); s_sceneDepthTex = 0; }
+        s_sceneColorTex.reset();
+        s_sceneDepthTex.reset();
         if (s_ssaoFBO) { glDeleteFramebuffers(1, &s_ssaoFBO); s_ssaoFBO = 0; }
-        if (s_ssaoColorTex) { glDeleteTextures(1, &s_ssaoColorTex); s_ssaoColorTex = 0; }
+        s_ssaoColorTex.reset();
         if (s_ssaoBlurFBO) { glDeleteFramebuffers(1, &s_ssaoBlurFBO); s_ssaoBlurFBO = 0; }
-        if (s_ssaoBlurTex) { glDeleteTextures(1, &s_ssaoBlurTex); s_ssaoBlurTex = 0; }
+        s_ssaoBlurTex.reset();
     }
     
     void renderQuad() {
@@ -291,7 +317,13 @@ void cleanup() {
     if (s_quadVBO) { glDeleteBuffers(1, &s_quadVBO); s_quadVBO = 0; }
     
     s_kernel.clear();
+    s_linearClampSampler.reset();
+    s_nearestClampSampler.reset();
     s_initialized = false;
+}
+
+void setDevice(rhi::Device* device) {
+    s_device = device;
 }
 
 void resize(int width, int height) {
@@ -346,8 +378,10 @@ void renderComposite(Camera* camera) {
         glUseProgram(s_ssaoProgram);
         
         // Bind depth texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_sceneDepthTex);
+        if (s_sceneDepthTex) {
+            s_sceneDepthTex->bind(0);
+            if (s_nearestClampSampler) s_nearestClampSampler->bind(0);
+        }
         glUniform1i(glGetUniformLocation(s_ssaoProgram, "depthTexture"), 0);
         
         // Bind noise texture
@@ -379,8 +413,10 @@ void renderComposite(Camera* camera) {
     if (s_blurProgram) {
         glUseProgram(s_blurProgram);
         
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_ssaoColorTex);
+        if (s_ssaoColorTex) {
+            s_ssaoColorTex->bind(0);
+            if (s_nearestClampSampler) s_nearestClampSampler->bind(0);
+        }
         glUniform1i(glGetUniformLocation(s_blurProgram, "ssaoTexture"), 0);
         glUniform2f(glGetUniformLocation(s_blurProgram, "texelSize"), 1.0f / s_width, 1.0f / s_height);
         
@@ -394,12 +430,16 @@ void renderComposite(Camera* camera) {
     if (s_compositeProgram) {
         glUseProgram(s_compositeProgram);
         
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_sceneColorTex);
+        if (s_sceneColorTex) {
+            s_sceneColorTex->bind(0);
+            if (s_linearClampSampler) s_linearClampSampler->bind(0);
+        }
         glUniform1i(glGetUniformLocation(s_compositeProgram, "sceneTexture"), 0);
         
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, s_ssaoBlurTex);
+        if (s_ssaoBlurTex) {
+            s_ssaoBlurTex->bind(1);
+            if (s_nearestClampSampler) s_nearestClampSampler->bind(1);
+        }
         glUniform1i(glGetUniformLocation(s_compositeProgram, "ssaoTexture"), 1);
         
         glUniform1f(glGetUniformLocation(s_compositeProgram, "ssaoStrength"), s_intensity > 0.0f ? 1.0f : 0.0f);
@@ -421,4 +461,4 @@ float getRadius() { return s_radius; }
 float getBias() { return s_bias; }
 float getIntensity() { return s_intensity; }
 
-} // namespace SSAO
+} // namespace sandbox::SSAO

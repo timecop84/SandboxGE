@@ -1,7 +1,9 @@
-#include "Light.h"
+#include "core/Light.h"
 #include "Vector.h"
-#include "Colour.h"
-#include <ShaderLib.h>
+#include "core/Colour.h"
+#include <utils/ShaderLib.h>
+
+namespace sandbox {
 
 Light::Light()
     : m_position(0.0f, 0.0f, 0.0f)
@@ -34,6 +36,8 @@ Light::Light(const Vector& position, const Colour& diffuse, const Colour& specul
     , m_quadraticAttenuation(0.0f)
     , m_enabled(true)
 {
+    (void)specular;
+    (void)lightType;
 }
 
 void Light::setAttenuation(float constant, float linear, float quadratic)
@@ -64,3 +68,5 @@ void Light::loadToShader(const std::string& uniformName) const {
     shader->setShaderParam(uniformName + ".linearAttenuation", m_linearAttenuation);
     shader->setShaderParam(uniformName + ".quadraticAttenuation", m_quadraticAttenuation);
 }
+
+} // namespace sandbox

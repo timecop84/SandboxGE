@@ -1,5 +1,4 @@
 #version 460 core
-/// @brief PBR Silk/Fabric Vertex Shader
 
 uniform bool Normalize;
 uniform vec3 viewerPos;

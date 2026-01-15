@@ -1,7 +1,5 @@
 #version 150
 
-/// @file Shadow.fs
-/// @brief Fragment shader for shadow map depth pass
 /// Outputs nothing - we only care about depth buffer
 
 out vec4 fragColor;

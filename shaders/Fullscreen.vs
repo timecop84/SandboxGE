@@ -1,5 +1,4 @@
 #version 150
-/// @brief Fullscreen quad vertex shader for post-processing
 
 in vec3 inVert;
 in vec2 inUV;

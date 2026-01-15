@@ -1,5 +1,4 @@
 #version 150
-/// @brief Final composite shader - applies SSAO to scene
 
 in vec2 TexCoords;
 out vec4 fragColor;

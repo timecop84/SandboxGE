@@ -1,7 +1,4 @@
-/// @file ShaderPathResolver.cpp
-/// @brief Shared shader path resolution with caching
-
-#include "ShaderPathResolver.h"
+#include "utils/ShaderPathResolver.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>

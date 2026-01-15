@@ -1,10 +1,6 @@
-/**
- * @file ShaderLib_GLAD.cpp
- * @brief Standalone shader library implementation using GLAD
- */
-
 #include <glad/gl.h>
-#include "ShaderLib.h"
+#include "rhi/Device.h"
+#include "utils/ShaderLib.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -29,6 +25,8 @@ static std::string getExecutableDir() {
     return "";
 }
 
+namespace sandbox {
+
 // Static singleton instance pointer
 ShaderLib* ShaderLib::s_instance = nullptr;
 
@@ -39,7 +37,14 @@ ShaderLib* ShaderLib::instance() {
     return s_instance;
 }
 
+ShaderLib::~ShaderLib() = default;
+
+void ShaderLib::setDevice(rhi::Device* device) {
+    m_device = device;
+}
+
 void ShaderLib::createShader(const std::string& name) {
+    (void)name;
     // Individual shaders are created when attachShader is called
 }
 
@@ -246,7 +251,77 @@ ShaderLib::ProgramWrapper* ShaderLib::operator[](const std::string& name) {
         return it->second.get();
     }
     
-    // Auto-create a simple Phong shader if requested
+    // Auto-create PhongUBO shader with UBO support
+    if (name == "PhongUBO") {
+        createShaderProgram("PhongUBO");
+        
+        attachShader("PhongUBOVertex", VERTEX);
+        loadShaderSource("PhongUBOVertex", "shaders/PhongUBO.vs");
+        compileShader("PhongUBOVertex");
+        
+        attachShader("PhongUBOFragment", FRAGMENT);
+        loadShaderSource("PhongUBOFragment", "shaders/PhongUBO.fs");
+        compileShader("PhongUBOFragment");
+        
+        attachShaderToProgram("PhongUBO", "PhongUBOVertex");
+        attachShaderToProgram("PhongUBO", "PhongUBOFragment");
+        
+        bindAttribute("PhongUBO", 0, "inVert");
+        bindAttribute("PhongUBO", 1, "inUV");
+        bindAttribute("PhongUBO", 2, "inNormal");
+        
+        linkProgramObject("PhongUBO");
+        
+        return m_wrappers["PhongUBO"].get();
+    }
+    
+    // Auto-create SilkUBO shader with UBO support
+    if (name == "SilkUBO") {
+        createShaderProgram("SilkUBO");
+        
+        attachShader("SilkUBOVertex", VERTEX);
+        loadShaderSource("SilkUBOVertex", "shaders/SilkUBO.vs");
+        compileShader("SilkUBOVertex");
+        
+        attachShader("SilkUBOFragment", FRAGMENT);
+        loadShaderSource("SilkUBOFragment", "shaders/SilkUBO.fs");
+        compileShader("SilkUBOFragment");
+        
+        attachShaderToProgram("SilkUBO", "SilkUBOVertex");
+        attachShaderToProgram("SilkUBO", "SilkUBOFragment");
+        
+        bindAttribute("SilkUBO", 0, "inVert");
+        bindAttribute("SilkUBO", 2, "inNormal");
+        
+        linkProgramObject("SilkUBO");
+        
+        return m_wrappers["SilkUBO"].get();
+    }
+    
+    // Auto-create SilkPBR_UBO shader with UBO support
+    if (name == "SilkPBR_UBO") {
+        createShaderProgram("SilkPBR_UBO");
+        
+        attachShader("SilkPBRUBOVertex", VERTEX);
+        loadShaderSource("SilkPBRUBOVertex", "shaders/SilkPBR_UBO.vs");
+        compileShader("SilkPBRUBOVertex");
+        
+        attachShader("SilkPBRUBOFragment", FRAGMENT);
+        loadShaderSource("SilkPBRUBOFragment", "shaders/SilkPBR_UBO.fs");
+        compileShader("SilkPBRUBOFragment");
+        
+        attachShaderToProgram("SilkPBR_UBO", "SilkPBRUBOVertex");
+        attachShaderToProgram("SilkPBR_UBO", "SilkPBRUBOFragment");
+        
+        bindAttribute("SilkPBR_UBO", 0, "inVert");
+        bindAttribute("SilkPBR_UBO", 2, "inNormal");
+        
+        linkProgramObject("SilkPBR_UBO");
+        
+        return m_wrappers["SilkPBR_UBO"].get();
+    }
+    
+    // Auto-create a simple Phong shader if requested (legacy uniforms)
     if (name == "Phong") {
         // Create the shader program
         createShaderProgram("Phong");
@@ -443,6 +518,16 @@ bool ShaderLib::loadShaderFromFile(const std::string& filename, std::string& sou
 
 // UBO functions
 unsigned int ShaderLib::createUBO(const std::string& name, size_t size) {
+    if (m_device) {
+        auto buffer = m_device->createBuffer(size, rhi::BufferUsage::Dynamic);
+        if (buffer) {
+            unsigned int id = static_cast<unsigned int>(buffer->nativeHandle());
+            m_ubos[name] = id;
+            m_uboBuffers[name] = std::move(buffer);
+            return id;
+        }
+    }
+
     unsigned int ubo;
     glGenBuffers(1, &ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, ubo);
@@ -463,6 +548,12 @@ void ShaderLib::updateUBO(const std::string& name, const void* data, size_t size
     auto it = m_ubos.find(name);
     if (it == m_ubos.end()) {
         std::cerr << "UBO not found: " << name << std::endl;
+        return;
+    }
+
+    auto bufferIt = m_uboBuffers.find(name);
+    if (bufferIt != m_uboBuffers.end()) {
+        bufferIt->second->update(data, size, offset);
         return;
     }
     
@@ -489,7 +580,16 @@ void ShaderLib::deleteUBO(const std::string& name) {
     if (it == m_ubos.end()) {
         return;
     }
-    
+
+    auto bufferIt = m_uboBuffers.find(name);
+    if (bufferIt != m_uboBuffers.end()) {
+        m_uboBuffers.erase(bufferIt);
+        m_ubos.erase(it);
+        return;
+    }
+
     glDeleteBuffers(1, &it->second);
     m_ubos.erase(it);
 }
+
+} // namespace sandbox
