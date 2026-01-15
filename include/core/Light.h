@@ -4,11 +4,15 @@
 #include <glm/glm.hpp>
 #include <string>
 
+class Vector;
+
+namespace sandbox {
+
 class Light {
 public:
     Light();
     Light(const glm::vec3& position, const glm::vec3& color = glm::vec3(1.0f));
-    Light(const class Vector& position, const class Colour& diffuse, const class Colour& specular, int lightType);
+    Light(const ::Vector& position, const class Colour& diffuse, const class Colour& specular, int lightType);
     
     // Position
     void setPosition(const glm::vec3& position) { m_position = position; }
@@ -52,5 +56,7 @@ private:
     
     bool m_enabled;
 };
+
+} // namespace sandbox
 
 #endif // LIGHT_H

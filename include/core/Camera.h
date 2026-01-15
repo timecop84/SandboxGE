@@ -3,6 +3,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+class Vector;
+
+namespace sandbox {
+
 class Camera {
 public:
     enum ProjectionType {
@@ -10,7 +14,7 @@ public:
         PERSPECTIVE
     };
     Camera(const glm::vec3& from, const glm::vec3& to, const glm::vec3& up, ProjectionType type);
-    Camera(const class Vector& from, const class Vector& to, const class Vector& up, int type);
+    Camera(const ::Vector& from, const ::Vector& to, const ::Vector& up, int type);
     void set(const glm::vec3& from, const glm::vec3& to, const glm::vec3& up);
     glm::mat4 getViewMatrix() const { return m_viewMatrix; }
     glm::mat4 getProjectionMatrix() const { return m_projectionMatrix; }
@@ -44,3 +48,5 @@ private:
     
     float m_left, m_right, m_bottom, m_top;
 };
+
+} // namespace sandbox

@@ -3,10 +3,10 @@
 #include <glm/glm.hpp>
 #include <array>
 
+namespace sandbox {
+
 // Forward declarations
 class Camera;
-
-namespace sandbox {
 
 // Per-frame context passed into render calls.
 struct RenderContext {

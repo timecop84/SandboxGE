@@ -1,4 +1,5 @@
 #include "rendering/UBOManager.h"
+#include <glad/gl.h>
 #include <iostream>
 
 namespace sandbox {
@@ -16,7 +17,7 @@ UBOManager::~UBOManager() {
     cleanup();
 }
 
-GLuint UBOManager::createUBO(const std::string& name, size_t size, uint32_t bindingPoint) {
+std::uint32_t UBOManager::createUBO(const std::string& name, size_t size, uint32_t bindingPoint) {
     // Check if already exists
     auto it = m_ubos.find(name);
     if (it != m_ubos.end()) {
@@ -41,10 +42,7 @@ GLuint UBOManager::createUBO(const std::string& name, size_t size, uint32_t bind
     data.bindingPoint = bindingPoint;
     m_ubos[name] = data;
     
-    std::cout << "UBOManager: Created UBO '" << name << "' (ID: " << uboID 
-              << ", Size: " << size << " bytes, Binding: " << bindingPoint << ")" << std::endl;
-    
-    return uboID;
+    return static_cast<std::uint32_t>(uboID);
 }
 
 void UBOManager::updateUBO(const std::string& name, const void* data, size_t size, size_t offset) {
@@ -66,7 +64,7 @@ void UBOManager::updateUBO(const std::string& name, const void* data, size_t siz
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
-GLuint UBOManager::getUBO(const std::string& name) const {
+std::uint32_t UBOManager::getUBO(const std::string& name) const {
     auto it = m_ubos.find(name);
     return (it != m_ubos.end()) ? it->second.id : 0;
 }

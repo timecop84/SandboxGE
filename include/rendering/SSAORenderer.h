@@ -1,6 +1,10 @@
 #pragma once
 
+namespace sandbox {
 class Camera;
+namespace rhi {
+class Device;
+}
 
 namespace SSAO {
 
@@ -8,6 +12,7 @@ bool init(int width, int height);
 
 void cleanup();
 void resize(int width, int height);
+void setDevice(rhi::Device* device);
 
 void beginScenePass();
 void endScenePass();
@@ -24,3 +29,4 @@ float getBias();
 float getIntensity();
 
 } // namespace SSAO
+} // namespace sandbox

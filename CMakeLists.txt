@@ -45,6 +45,11 @@ endif()
 if(NOT DEFINED SANDBOX_GE_EXTRA_INCLUDE_DIRS)
     set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "" CACHE STRING "Optional include paths for external math/helpers (e.g., Vector/Matrix).")
 endif()
+if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/MathLib/include")
+        set(SANDBOX_GE_EXTRA_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/external/MathLib/include")
+    endif()
+endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
 
 set(SANDBOX_GE_SOURCES
@@ -80,13 +85,21 @@ set(SANDBOX_GE_SOURCES
     src/ShaderPathResolver.cpp
     src/LightingHelper.cpp
     src/GeometryFactory.cpp
+    src/rhi/DeviceGL.cpp
     
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
 )
 
 add_library(SandboxGE STATIC ${SANDBOX_GE_SOURCES})
 
-target_compile_features(SandboxGE PUBLIC cxx_std_17)
+if(NOT DEFINED SANDBOX_GE_CXX_STANDARD)
+    set(SANDBOX_GE_CXX_STANDARD "20" CACHE STRING "C++ standard to use (20 or 23).")
+endif()
+if(SANDBOX_GE_CXX_STANDARD STREQUAL "23")
+    target_compile_features(SandboxGE PUBLIC cxx_std_23)
+else()
+    target_compile_features(SandboxGE PUBLIC cxx_std_20)
+endif()
 sandboxge_enable_warnings(SandboxGE)
 
 target_include_directories(SandboxGE

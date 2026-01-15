@@ -1,72 +1,60 @@
 #include "core/ResourceManager.h"
+#include "rhi/DeviceGL.h"
 #include <utils/GeometryFactory.h>
 #include <iostream>
 
+namespace {
+
+class DeviceBuffer final : public sandbox::GpuBuffer {
+public:
+    explicit DeviceBuffer(std::unique_ptr<sandbox::rhi::Buffer> buffer, size_t size)
+        : m_buffer(std::move(buffer)), m_size(size) {}
+
+    void bind(sandbox::rhi::BufferBindTarget target) const override {
+        if (m_buffer) {
+            m_buffer->bind(target);
+        }
+    }
+
+    void upload(const void* data, size_t dataSize, size_t offset) override {
+        if (offset + dataSize > m_size) {
+            std::cerr << "GpuBuffer::upload - data exceeds buffer size!" << std::endl;
+            return;
+        }
+        if (m_buffer) {
+            m_buffer->update(data, dataSize, offset);
+        }
+    }
+
+private:
+    std::unique_ptr<sandbox::rhi::Buffer> m_buffer;
+    size_t m_size = 0;
+};
+
+class DeviceTexture final : public sandbox::Texture {
+public:
+    explicit DeviceTexture(std::unique_ptr<sandbox::rhi::Texture> texture)
+        : m_texture(std::move(texture)) {}
+
+    void bind(int slot) const override {
+        if (m_texture) {
+            m_texture->bind(static_cast<std::uint32_t>(slot));
+        }
+    }
+
+    void unbind() const override {
+        if (m_texture) {
+            m_texture->unbind();
+        }
+    }
+
+private:
+    std::unique_ptr<sandbox::rhi::Texture> m_texture;
+};
+
+} // namespace
+
 namespace sandbox {
-
-GpuBuffer::GpuBuffer(size_t bufferSize, GLenum bufferUsage) 
-    : size(bufferSize), usage(bufferUsage) {
-    glGenBuffers(1, &id);
-    glBindBuffer(GL_ARRAY_BUFFER, id);
-    glBufferData(GL_ARRAY_BUFFER, size, nullptr, usage);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-GpuBuffer::~GpuBuffer() {
-    if (id != 0) {
-        glDeleteBuffers(1, &id);
-    }
-}
-
-void GpuBuffer::bind(GLenum target) const {
-    glBindBuffer(target, id);
-}
-
-void GpuBuffer::upload(const void* data, size_t dataSize, size_t offset) {
-    if (offset + dataSize > size) {
-        std::cerr << "GpuBuffer::upload - data exceeds buffer size!" << std::endl;
-        return;
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, id);
-    glBufferSubData(GL_ARRAY_BUFFER, offset, dataSize, data);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-Texture::Texture(int w, int h, GLenum fmt, GLenum tgt) 
-    : width(w), height(h), format(fmt), target(tgt) {
-    glGenTextures(1, &id);
-    glBindTexture(target, id);
-    
-    // Setup default filtering and wrapping
-    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    // Allocate storage based on format
-    if (format == GL_DEPTH_COMPONENT || format == GL_DEPTH_COMPONENT24 || format == GL_DEPTH_COMPONENT32F) {
-        glTexImage2D(target, 0, format, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    } else {
-        glTexImage2D(target, 0, format, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    }
-    
-    glBindTexture(target, 0);
-}
-
-Texture::~Texture() {
-    if (id != 0) {
-        glDeleteTextures(1, &id);
-    }
-}
-
-void Texture::bind(int slot) const {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(target, id);
-}
-
-void Texture::unbind() const {
-    glBindTexture(target, 0);
-}
 
 ResourceManager* ResourceManager::s_instance = nullptr;
 
@@ -77,18 +65,32 @@ ResourceManager* ResourceManager::instance() {
     return s_instance;
 }
 
+ResourceManager::ResourceManager() {
+    m_device = rhi::createOpenGLDevice();
+}
+
+void ResourceManager::setDevice(std::unique_ptr<rhi::Device> device) {
+    if (device) {
+        m_device = std::move(device);
+    }
+}
+
 GeometryHandle ResourceManager::getGeometry(const std::string& name) {
     // Delegate to GeometryFactory for now (already has good caching)
     return FlockingGraphics::GeometryFactory::instance().getGeometry(name);
 }
 
-BufferHandle ResourceManager::createBuffer(const std::string& name, size_t size, GLenum usage) {
+BufferHandle ResourceManager::createBuffer(const std::string& name, size_t size, rhi::BufferUsage usage) {
     auto it = m_buffers.find(name);
     if (it != m_buffers.end()) {
         return it->second; // Already exists
     }
     
-    auto buffer = std::make_shared<GpuBuffer>(size, usage);
+    if (!m_device) {
+        m_device = rhi::createOpenGLDevice();
+    }
+
+    auto buffer = std::make_shared<DeviceBuffer>(m_device->createBuffer(size, usage), size);
     m_buffers[name] = buffer;
     return buffer;
 }
@@ -102,13 +104,18 @@ void ResourceManager::removeBuffer(const std::string& name) {
     m_buffers.erase(name);
 }
 
-TextureHandle ResourceManager::createTexture(const std::string& name, int width, int height, GLenum format) {
+TextureHandle ResourceManager::createTexture(const std::string& name, int width, int height,
+                                             rhi::TextureFormat format, rhi::TextureTarget target) {
     auto it = m_textures.find(name);
     if (it != m_textures.end()) {
         return it->second; // Already exists
     }
     
-    auto texture = std::make_shared<Texture>(width, height, format);
+    if (!m_device) {
+        m_device = rhi::createOpenGLDevice();
+    }
+
+    auto texture = std::make_shared<DeviceTexture>(m_device->createTexture(width, height, format, target));
     m_textures[name] = texture;
     return texture;
 }

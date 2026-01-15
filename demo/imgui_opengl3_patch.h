@@ -1,4 +1,3 @@
-/// @file imgui_opengl3_patch.h
 /// Patch for ImGui OpenGL3 backend to support WSLg (GLSL 4.20 max)
 /// Include this BEFORE imgui_impl_opengl3.h to downgrade version strings
 

@@ -1,13 +1,8 @@
 #version 460 core
-/// @brief Silk/fabric fragment shader with anisotropic specular, SSS, and multi-shadow support
 
-/// @brief the vertex normal
 in vec3 fragmentNormal;
-/// @brief tangent for anisotropic lighting
 in vec3 fragmentTangent;
-/// @brief bitangent for anisotropic lighting
 in vec3 fragmentBitangent;
-/// @brief our output fragment colour
 out vec4 fragColour;
 
 in vec3 lightDir;
@@ -32,7 +27,6 @@ uniform float shadowBias;
 uniform float shadowSoftness;
 uniform int shadowEnabled;
 
-/// @brief material structure
 struct Materials
 {
   vec4 ambient;
@@ -41,7 +35,6 @@ struct Materials
   float shininess;
 };
 
-/// @brief light structure
 struct Lights
 {
     vec4 position;

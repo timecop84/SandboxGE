@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+namespace sandbox {
+
 // glm::vec4 wrapper, interface-compatible with ngl::Colour
 class Colour {
 public:
@@ -61,3 +63,5 @@ public:
 
 // Global operators for scalar multiplication
 Colour operator*(float scalar, const Colour& c);
+
+} // namespace sandbox

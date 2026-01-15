@@ -1,5 +1,4 @@
 #version 150
-/// @brief Screen-Space Ambient Occlusion fragment shader
 
 in vec2 TexCoords;
 out float fragColor;

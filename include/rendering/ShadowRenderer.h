@@ -1,9 +1,15 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <cstdint>
 
+namespace sandbox {
 class Camera;
 class Light;
+namespace rhi {
+class Device;
+class Texture;
+}
 
 namespace Shadow {
 
@@ -11,12 +17,14 @@ constexpr int MAX_SHADOW_LIGHTS = 4;
 
 bool init(int shadowMapSize = 4096);
 void cleanup();
+void setDevice(rhi::Device* device);
 
 void beginShadowPass(int lightIndex, Light* light, const glm::vec3& sceneCenter, float sceneRadius);
 void endShadowPass();
 
 glm::mat4 getLightSpaceMatrix(int lightIndex);
-unsigned int getShadowMapTexture(int lightIndex);
+const rhi::Texture* getShadowMapTexture(int lightIndex);
+void bindShadowMap(int lightIndex, int slot);
 unsigned int getShadowProgram();
 void setModelMatrix(const glm::mat4& model);
 
@@ -30,3 +38,4 @@ float getBias();
 int getMapSize();
 
 } // namespace Shadow
+} // namespace sandbox

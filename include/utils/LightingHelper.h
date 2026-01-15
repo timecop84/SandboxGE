@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <utils/ShaderLib.h>
 
-namespace Lighting {
+namespace sandbox::Lighting {
 
 struct LightParams {
     glm::vec3 position{0.0f, 50.0f, 0.0f};
@@ -26,7 +26,7 @@ struct ShadowParams {
 void setLightUniforms(ShaderLib::ProgramWrapper* prog, const LightParams& light, const glm::mat4& viewMatrix);
 void setShadowUniforms(ShaderLib::ProgramWrapper* prog, const ShadowParams& shadow);
 
-LightParams fromUIParams(const float* position, const float* ambient, 
+LightParams fromUIParams(const float* position, const float* ambient,
                          const float* diffuse, const float* specular);
 
-} // namespace Lighting
+} // namespace sandbox::Lighting

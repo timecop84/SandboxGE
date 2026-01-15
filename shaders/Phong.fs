@@ -1,14 +1,9 @@
 #version 460 core
 
-/// @brief[in] the vertex normal
 in vec3 fragmentNormal;
-/// @brief our output fragment colour
 out vec4 fragColour;
-/// @brief UV coordinates
 in vec2 fragUV;
-/// @brief Position in light space for shadow mapping
 in vec4 fragPosLightSpace;
-/// @brief World position for multi-shadow calculation
 in vec3 worldPos;
 
 // Multi-shadow support
@@ -144,7 +139,6 @@ vec3 checkerPattern(vec2 uv, float scale, vec3 color1, vec3 color2)
     return mix(color1, color2, pattern);
 }
 
-/// @brief material structure
 struct Materials
 {
   vec4 ambient;
@@ -153,7 +147,6 @@ struct Materials
   float shininess;
 };
 
-// @brief light structure
 struct Lights
 {
     vec4 position;
@@ -168,7 +161,6 @@ struct Lights
     float linearAttenuation;
     float quadraticAttenuation;
 };
-// @param material passed from our program
 uniform Materials material;
 
 uniform Lights light;

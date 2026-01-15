@@ -4,7 +4,7 @@
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
 
-namespace Lighting {
+namespace sandbox::Lighting {
 
 void setLightUniforms(ShaderLib::ProgramWrapper* prog, const LightParams& light, const glm::mat4& viewMatrix) {
     if (!prog) return;
@@ -32,8 +32,7 @@ void setShadowUniforms(ShaderLib::ProgramWrapper* prog, const ShadowParams& shad
     glUniform1f(glGetUniformLocation(programId, "shadowStrength"), shadow.strength);
     glUniform1f(glGetUniformLocation(programId, "shadowMapSize"), static_cast<float>(shadow.mapSize));
     
-    glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, Shadow::getShadowMapTexture(0));
+    Shadow::bindShadowMap(0, 5);
     glUniform1i(glGetUniformLocation(programId, "shadowMap"), 5);
 }
 
@@ -47,4 +46,4 @@ LightParams fromUIParams(const float* position, const float* ambient,
     return params;
 }
 
-} // namespace Lighting
+} // namespace sandbox::Lighting

@@ -7,6 +7,7 @@
 #include <core/RenderSettings.h>
 #include <glm/vec3.hpp>
 #include <array>
+#include <string>
 
 namespace sandbox {
 

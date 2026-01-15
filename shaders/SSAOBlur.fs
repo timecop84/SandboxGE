@@ -1,5 +1,4 @@
 #version 150
-/// @brief SSAO blur shader - bilateral blur to preserve edges
 
 in vec2 TexCoords;
 out float fragColor;

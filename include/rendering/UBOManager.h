@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/Types.h"
-#include <glad/gl.h>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 
@@ -12,9 +12,9 @@ class UBOManager {
 public:
     static UBOManager* instance();
     
-    GLuint createUBO(const std::string& name, size_t size, uint32_t bindingPoint);
+    std::uint32_t createUBO(const std::string& name, size_t size, uint32_t bindingPoint);
     void updateUBO(const std::string& name, const void* data, size_t size, size_t offset = 0);
-    GLuint getUBO(const std::string& name) const;
+    std::uint32_t getUBO(const std::string& name) const;
     void deleteUBO(const std::string& name);
     void bindUBO(const std::string& name);
     void bindUBOToPoint(const std::string& name, uint32_t bindingPoint);
@@ -27,7 +27,7 @@ private:
     static UBOManager* s_instance;
     
     struct UBOData {
-        GLuint id = 0;
+        std::uint32_t id = 0;
         size_t size = 0;
         uint32_t bindingPoint = 0;
     };

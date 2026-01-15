@@ -1,7 +1,5 @@
 #version 150
 
-/// @file Shadow.vs
-/// @brief Vertex shader for shadow map depth pass
 
 in vec3 inVert;
 

@@ -1,6 +1,7 @@
 #include "rendering/InstancedRenderable.h"
 #include "rendering/UBOManager.h"
 #include "rendering/UBOStructures.h"
+#include <glad/gl.h>
 #include <core/Camera.h>
 #include <utils/GeometryFactory.h>
 #include <iostream>

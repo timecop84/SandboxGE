@@ -1,4 +1,5 @@
 #include <glad/gl.h>
+#include "rhi/Device.h"
 #include "utils/ShaderLib.h"
 #include <iostream>
 #include <fstream>
@@ -24,6 +25,8 @@ static std::string getExecutableDir() {
     return "";
 }
 
+namespace sandbox {
+
 // Static singleton instance pointer
 ShaderLib* ShaderLib::s_instance = nullptr;
 
@@ -32,6 +35,12 @@ ShaderLib* ShaderLib::instance() {
         s_instance = new ShaderLib();
     }
     return s_instance;
+}
+
+ShaderLib::~ShaderLib() = default;
+
+void ShaderLib::setDevice(rhi::Device* device) {
+    m_device = device;
 }
 
 void ShaderLib::createShader(const std::string& name) {
@@ -509,6 +518,16 @@ bool ShaderLib::loadShaderFromFile(const std::string& filename, std::string& sou
 
 // UBO functions
 unsigned int ShaderLib::createUBO(const std::string& name, size_t size) {
+    if (m_device) {
+        auto buffer = m_device->createBuffer(size, rhi::BufferUsage::Dynamic);
+        if (buffer) {
+            unsigned int id = static_cast<unsigned int>(buffer->nativeHandle());
+            m_ubos[name] = id;
+            m_uboBuffers[name] = std::move(buffer);
+            return id;
+        }
+    }
+
     unsigned int ubo;
     glGenBuffers(1, &ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, ubo);
@@ -529,6 +548,12 @@ void ShaderLib::updateUBO(const std::string& name, const void* data, size_t size
     auto it = m_ubos.find(name);
     if (it == m_ubos.end()) {
         std::cerr << "UBO not found: " << name << std::endl;
+        return;
+    }
+
+    auto bufferIt = m_uboBuffers.find(name);
+    if (bufferIt != m_uboBuffers.end()) {
+        bufferIt->second->update(data, size, offset);
         return;
     }
     
@@ -555,7 +580,16 @@ void ShaderLib::deleteUBO(const std::string& name) {
     if (it == m_ubos.end()) {
         return;
     }
-    
+
+    auto bufferIt = m_uboBuffers.find(name);
+    if (bufferIt != m_uboBuffers.end()) {
+        m_uboBuffers.erase(bufferIt);
+        m_ubos.erase(it);
+        return;
+    }
+
     glDeleteBuffers(1, &it->second);
     m_ubos.erase(it);
 }
+
+} // namespace sandbox

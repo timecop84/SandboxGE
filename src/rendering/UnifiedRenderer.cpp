@@ -8,6 +8,7 @@
 #include <core/Camera.h>
 #include <core/Light.h>
 #include <core/Colour.h>
+#include <core/ResourceManager.h>
 #include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -40,19 +41,21 @@ UnifiedRenderer::~UnifiedRenderer() {
 }
 
 bool UnifiedRenderer::initialize(int width, int height) {
-    std::cout << "UnifiedRenderer: Initializing..." << std::endl;
-    
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDisable(GL_CULL_FACE);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+
+    auto* device = ResourceManager::instance()->getDevice();
+    SSAO::setDevice(device);
+    Shadow::setDevice(device);
+    ShaderLib::instance()->setDevice(device);
     
     UBOManager* uboMgr = UBOManager::instance();
     uboMgr->createUBO("Matrices", sizeof(MatrixUBO), UBOBindingPoints::MATRICES);
     uboMgr->createUBO("Material", sizeof(MaterialUBO), UBOBindingPoints::MATERIAL);
     uboMgr->createUBO("Lighting", sizeof(LightingUBO), UBOBindingPoints::LIGHTING);
     uboMgr->createUBO("Instances", sizeof(InstancesUBO), UBOBindingPoints::INSTANCES);
-    std::cout << "UnifiedRenderer: UBOs initialized at binding points 0-3" << std::endl;
     
     SSAO::init(width, height);
     
@@ -67,7 +70,6 @@ bool UnifiedRenderer::initialize(int width, int height) {
     m_context.viewportWidth = width;
     m_context.viewportHeight = height;
     
-    std::cout << "UnifiedRenderer: Initialized successfully" << std::endl;
     return true;
 }
 
@@ -173,20 +175,6 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
     
     lighting.ambientStrength = 0.2f;
     
-    static auto lastDebugTime = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastDebugTime).count();
-    
-    if (elapsed >= 1) {
-        lastDebugTime = now;
-        std::cout << "[LightingUBO] count=" << lighting.count << ", ambient=" << lighting.ambientStrength << std::endl;
-        for (int i = 0; i < lighting.count; ++i) {
-            std::cout << "  Light[" << i << "]: pos=(" << lighting.positions[i].x << "," 
-                      << lighting.positions[i].y << "," << lighting.positions[i].z 
-                      << "), intensity=" << lighting.positions[i].w << std::endl;
-        }
-    }
-    
     UBOManager::instance()->updateUBO("Lighting", &lighting, sizeof(LightingUBO));
 }
 
@@ -196,17 +184,6 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     m_context.currentPass = RenderContext::Pass::SHADOW;
     
     m_queue.sortShadow();
-    
-    static auto lastShadowPassDebugTime = std::chrono::steady_clock::now();
-    auto nowShadowPass = std::chrono::steady_clock::now();
-    auto elapsedShadowPass = std::chrono::duration_cast<std::chrono::seconds>(nowShadowPass - lastShadowPassDebugTime).count();
-    
-    if (elapsedShadowPass >= 1) {
-        lastShadowPassDebugTime = nowShadowPass;
-        std::cout << "[ShadowPass] Shadow queue size=" << m_queue.getShadowQueueSize() 
-                  << ", Shadow::isEnabled()=" << (Shadow::isEnabled() ? "true" : "false") 
-                  << ", extra lights=" << settings.lights.size() << std::endl;
-    }
     
     glm::vec3 sceneCenter(0.0f, 0.0f, 0.0f);
     float sceneRadius = 100.0f;
@@ -249,20 +226,8 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     
     m_context.shadowsEnabled = settings.shadowEnabled && Shadow::isEnabled();
     
-    static auto lastShadowDebugTime = std::chrono::steady_clock::now();
-    auto nowShadow = std::chrono::steady_clock::now();
-    auto elapsedShadow = std::chrono::duration_cast<std::chrono::seconds>(nowShadow - lastShadowDebugTime).count();
-    
-    if (elapsedShadow >= 1) {
-        lastShadowDebugTime = nowShadow;
-        std::cout << "[RenderScenePass] shadowsEnabled=" << (m_context.shadowsEnabled ? "true" : "false")
-                  << ", Shadow::isEnabled()=" << (Shadow::isEnabled() ? "true" : "false")
-                  << ", settings.shadowEnabled=" << (settings.shadowEnabled ? "true" : "false") << std::endl;
-    }
-    
     for (int i = 0; i < 4; ++i) {
-        glActiveTexture(GL_TEXTURE8 + i);  // Use high texture units to avoid conflicts
-        glBindTexture(GL_TEXTURE_2D, Shadow::getShadowMapTexture(i));
+        Shadow::bindShadowMap(i, 8 + i);  // Use high texture units to avoid conflicts
     }
     
     m_queue.executeMain(m_context);

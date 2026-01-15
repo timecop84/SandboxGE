@@ -13,8 +13,8 @@ namespace sandbox {
 // Forward declarations
 class Material;
 class IRenderable;
-struct GpuBuffer;
-struct Texture;
+class GpuBuffer;
+class Texture;
 
 // Type aliases for clarity and type safety
 using MaterialID = uint32_t;

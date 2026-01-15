@@ -29,8 +29,6 @@ void ShaderHotReloader::registerShader(const std::string& shaderName, const std:
     }
     
     m_shaders[shaderName] = info;
-    std::cout << "ShaderHotReloader: Registered shader '" << shaderName << "' with " 
-              << filePaths.size() << " files" << std::endl;
 }
 
 void ShaderHotReloader::unregisterShader(const std::string& shaderName) {
@@ -63,10 +61,7 @@ void ShaderHotReloader::checkForChanges() {
         }
         
         if (modified) {
-            std::cout << "ShaderHotReloader: Detected change in shader '" << shaderName << "', reloading..." << std::endl;
-            
             if (reloadShader(shaderName, info)) {
-                std::cout << "ShaderHotReloader: Successfully reloaded '" << shaderName << "'" << std::endl;
                 info.lastError.clear();
             } else {
                 std::cerr << "ShaderHotReloader: Failed to reload '" << shaderName << "'" << std::endl;
@@ -85,6 +80,7 @@ void ShaderHotReloader::checkForChanges() {
 }
 
 bool ShaderHotReloader::reloadShader(const std::string& shaderName, ShaderFileInfo& info) {
+    (void)shaderName;
     // For now, we don't have a built-in "reload" function in ShaderLib
     // We would need to:
     // 1. Delete the old program
@@ -94,16 +90,8 @@ bool ShaderHotReloader::reloadShader(const std::string& shaderName, ShaderFileIn
     // This is a placeholder - full implementation would require
     // extending ShaderLib with reload capability
     
-    std::cout << "ShaderHotReloader: Shader reload not yet fully implemented for '" << shaderName << "'" << std::endl;
     info.lastError = "Reload functionality pending ShaderLib extension";
-    
-    // TODO: Implement actual shader recompilation
-    // - Load source files
-    // - Compile shaders
-    // - Link program
-    // - Replace old program only if successful
-    // - Capture and store error messages
-    
+
     return false; // Placeholder
 }
 

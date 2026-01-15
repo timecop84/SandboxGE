@@ -1,7 +1,3 @@
-/**
- * @file test_new_api.cpp
- * @brief Minimal test of the new UnifiedRenderer API
- */
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>

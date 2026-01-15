@@ -3,6 +3,8 @@
 #include "core/Colour.h"
 #include <utils/ShaderLib.h>
 
+namespace sandbox {
+
 Light::Light()
     : m_position(0.0f, 0.0f, 0.0f)
     , m_color(1.0f, 1.0f, 1.0f)
@@ -66,3 +68,5 @@ void Light::loadToShader(const std::string& uniformName) const {
     shader->setShaderParam(uniformName + ".linearAttenuation", m_linearAttenuation);
     shader->setShaderParam(uniformName + ".quadraticAttenuation", m_quadraticAttenuation);
 }
+
+} // namespace sandbox

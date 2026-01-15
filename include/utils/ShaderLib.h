@@ -1,10 +1,17 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <string>
-#include <unordered_map>
+#include <cstddef>
 #include <memory>
 #include <set>
+#include <string>
+#include <unordered_map>
+
+namespace sandbox {
+namespace rhi {
+class Device;
+class Buffer;
+}
 
 class ShaderLib {
 public:
@@ -16,6 +23,8 @@ public:
     };
     
     static ShaderLib* instance();
+
+    void setDevice(rhi::Device* device);
     
     void createShader(const std::string& name);
     void createShaderProgram(const std::string& name);
@@ -72,7 +81,7 @@ public:
     
 private:
     ShaderLib() = default;
-    ~ShaderLib() = default;
+    ~ShaderLib();
     
     // Singleton instance
     static ShaderLib* s_instance;
@@ -86,6 +95,7 @@ private:
     
     // UBO storage
     std::unordered_map<std::string, unsigned int> m_ubos;           // UBO object IDs
+    std::unordered_map<std::string, std::unique_ptr<rhi::Buffer>> m_uboBuffers;
     
     // Track which shaders are attached to which programs to prevent duplicates
     std::unordered_map<std::string, std::set<std::string>> m_programShaderAttachments;
@@ -93,6 +103,7 @@ private:
     // Current state
     std::string m_currentShader;
     ProgramWrapper* m_currentWrapper = nullptr;
+    rhi::Device* m_device = nullptr;
     
     // Helper methods
     unsigned int glShaderType(int type);
@@ -100,3 +111,5 @@ private:
     bool checkProgramLinking(unsigned int programId, const std::string& name);
     bool loadShaderFromFile(const std::string& filename, std::string& source);
 };
+
+} // namespace sandbox

@@ -1,17 +1,11 @@
 #version 460 core
-/// @brief flag to indicate if model has unit normals if not normalize
 uniform bool Normalize;
 // the eye position of the camera
 uniform vec3 viewerPos;
-/// @brief the current fragment normal for the vert being processed
 out vec3 fragmentNormal;
-/// @brief the vertex passed in
 in vec3 inVert;
-/// @brief the normal passed in
 in vec3 inNormal;
-/// @brief the in uv
 in vec2 inUV;
-/// @brief world position for multi-shadow calculation
 out vec3 worldPos;
 
 struct Materials
@@ -75,7 +69,6 @@ worldPos = worldPosition.xyz;
 eyeDirection = normalize(viewerPos - worldPosition.xyz);
 // Get vertex position in eye coordinates
 // Transform the vertex to eye co-ordinates for frag shader
-/// @brief the vertex in eye co-ordinates  homogeneous
 vec4 eyeCord=MV*vec4(inVert,1);
 
 vPosition = eyeCord.xyz / eyeCord.w;;

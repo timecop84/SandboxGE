@@ -1,5 +1,7 @@
 #include "core/Colour.h"
 
+namespace sandbox {
+
 std::ostream& operator<<(std::ostream& os, const Colour& c) {
     os << "RGBA(" << c.m_r << ", " << c.m_g << ", " << c.m_b << ", " << c.m_a << ")";
     return os;
@@ -8,3 +10,5 @@ std::ostream& operator<<(std::ostream& os, const Colour& c) {
 Colour operator*(float scalar, const Colour& c) {
     return c * scalar;
 }
+
+} // namespace sandbox

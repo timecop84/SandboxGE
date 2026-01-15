@@ -1,23 +1,13 @@
 #version 460 core
-/// @brief Silk/fabric vertex shader with tangent calculation for anisotropic lighting
 
-/// @brief flag to indicate if model has unit normals if not normalize
 uniform bool Normalize;
-/// @brief the eye position of the camera
 uniform vec3 viewerPos;
-/// @brief the current fragment normal
 out vec3 fragmentNormal;
-/// @brief tangent for anisotropic lighting (along U)
 out vec3 fragmentTangent;
-/// @brief bitangent for anisotropic lighting (along V)
 out vec3 fragmentBitangent;
-/// @brief world position for multi-shadow
 out vec3 worldPos;
-/// @brief the vertex passed in
 in vec3 inVert;
-/// @brief the normal passed in
 in vec3 inNormal;
-/// @brief the in uv
 in vec2 inUV;
 
 struct Materials
