@@ -1,6 +1,7 @@
 #include "materials/Material.h"
 #include "core/ResourceManager.h"
 #include "core/RenderContext.h"
+#include "core/Camera.h"
 #include "rendering/UBOManager.h"
 #include "rendering/ShadowRenderer.h"
 #include <utils/ShaderLib.h>

@@ -1,5 +1,5 @@
 #include "IBL.h"
-#include "ShaderPathResolver.h"
+#include "utils/ShaderPathResolver.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
