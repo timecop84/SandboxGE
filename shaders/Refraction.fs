@@ -16,7 +16,7 @@ uniform vec3 lightColor;
 uniform vec2 screenSize;
 uniform sampler2D envMap;
 uniform float envMapIntensity;
-uniform mat4 view;
+uniform mat4 viewMatrix;
 
 const float PI = 3.14159265359;
 
@@ -34,9 +34,9 @@ void main()
     vec3 V = normalize(cameraPos - FragPos);
     vec3 L = normalize(lightWorldPos - FragPos);
     float eta = 1.0 / ior;
-    vec3 viewPos = vec3(view * vec4(FragPos, 1.0));
+    vec3 viewPos = vec3(viewMatrix * vec4(FragPos, 1.0));
     vec3 Iview = normalize(viewPos);
-    vec3 Nview = normalize(mat3(view) * N);
+    vec3 Nview = normalize(mat3(viewMatrix) * N);
     vec3 refractDir = refract(Iview, Nview, eta);
     vec2 screenUV = gl_FragCoord.xy / screenSize;
     float viewDot = clamp(dot(N, -I), 0.0, 1.0);

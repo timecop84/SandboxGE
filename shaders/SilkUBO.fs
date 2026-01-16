@@ -42,6 +42,8 @@ uniform float cascadeSplits[4];
 uniform int debugCascades;
 uniform int lightCastsShadow[4];
 uniform int lightShadowMapIndex[4];
+uniform int lightCascadeStart[4];
+uniform int lightCascadeCount[4];
 
 // View position for specular
 uniform vec3 viewPos;
@@ -113,12 +115,12 @@ float sampleShadowByIndex(int index, vec3 pos, float lightSize) {
     return 1.0;
 }
 
-float sampleCascadeShadow(vec3 pos, float lightSize) {
+float sampleCascadeShadow(int startIndex, int count, vec3 pos, float lightSize) {
     float minShadow = 1.0;
-    int count = cascadeCount > 0 ? cascadeCount : 1;
-    if (count > 4) count = 4;
-    for (int i = 0; i < count; ++i) {
-        float shadow = sampleShadowByIndex(i, pos, lightSize);
+    int cCount = clamp(count, 1, 4);
+    for (int i = 0; i < cCount; ++i) {
+        int mapIndex = startIndex + i;
+        float shadow = sampleShadowByIndex(mapIndex, pos, lightSize);
         minShadow = min(minShadow, shadow);
     }
     return minShadow;
@@ -179,8 +181,8 @@ void main() {
         float shadow = 1.0;
         if (shadowsEnabled && lightCastsShadow[i] != 0) {
             float shadowFactor = 1.0;
-            if (i == 0 && useCascades != 0) {
-                shadowFactor = sampleCascadeShadow(worldPos, lightSize);
+            if (useCascades != 0 && lightCascadeCount[i] > 1) {
+                shadowFactor = sampleCascadeShadow(lightCascadeStart[i], lightCascadeCount[i], worldPos, lightSize);
             } else {
                 int mapIndex = lightShadowMapIndex[i];
                 shadowFactor = sampleShadowByIndex(mapIndex, worldPos, lightSize);

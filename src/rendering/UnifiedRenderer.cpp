@@ -184,6 +184,8 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
     m_context.numShadowMaps = 0;
     m_context.lightCastsShadow = {0, 0, 0, 0};
     m_context.lightShadowMapIndex = {-1, -1, -1, -1};
+    m_context.lightCascadeStart = {-1, -1, -1, -1};
+    m_context.lightCascadeCount = {0, 0, 0, 0};
     
     if (settings.shadowEnabled) {
         renderShadowPass(settings);
@@ -263,40 +265,45 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     m_context.lightShadowMapIndex = {-1, -1, -1, -1};
 
     int shadowMapIndex = 0;
-
-    if (settings.useCascadedShadows && m_lightSlotCount > 0 && m_lightSlots[0].castsShadow) {
-        const auto& slot = m_lightSlots[0];
-        Light light(slot.position, Colour(slot.color.r, slot.color.g, slot.color.b, 1.0f));
-        const int cascadeCount = std::max(1, std::min(settings.cascadeCount, Shadow::MAX_SHADOW_LIGHTS));
-
-        float splitNear = m_context.camera ? m_context.camera->getNear() : 0.1f;
-        for (int c = 0; c < cascadeCount; ++c) {
-            float splitFar = m_context.cascadeSplits[c];
-            Shadow::beginShadowCascade(c, &light, m_context.camera, splitNear, splitFar);
-            m_queue.executeShadow(m_context);
-            Shadow::endShadowPass();
-            splitNear = splitFar;
-        }
-
-        m_context.lightCastsShadow[0] = 1;
-        m_context.lightShadowMapIndex[0] = 0;
-        shadowMapIndex = cascadeCount;
-        m_context.numShadowMaps = cascadeCount;
-    }
+    const bool cascadesEnabled = settings.useCascadedShadows && settings.cascadeCount > 1;
+    const int cascadeCount = cascadesEnabled
+        ? std::max(2, std::min(settings.cascadeCount, Shadow::MAX_SHADOW_LIGHTS))
+        : 1;
 
     for (int li = 0; li < m_lightSlotCount && shadowMapIndex < Shadow::MAX_SHADOW_LIGHTS; ++li) {
-        if (li == 0 && settings.useCascadedShadows) continue;
         if (!m_lightSlots[li].castsShadow) continue;
 
         const auto& slot = m_lightSlots[li];
         Light light(slot.position, Colour(slot.color.r, slot.color.g, slot.color.b, 1.0f));
-        Shadow::beginShadowPass(shadowMapIndex, &light, sceneCenter, sceneRadius);
-        m_queue.executeShadow(m_context);
-        Shadow::endShadowPass();
+
+        bool useCascadesForLight = cascadesEnabled &&
+            (shadowMapIndex + cascadeCount) <= Shadow::MAX_SHADOW_LIGHTS;
+
+        if (useCascadesForLight) {
+            float splitNear = m_context.camera ? m_context.camera->getNear() : 0.1f;
+            for (int c = 0; c < cascadeCount; ++c) {
+                float splitFar = m_context.cascadeSplits[c];
+                int mapIndex = shadowMapIndex + c;
+                Shadow::beginShadowCascade(mapIndex, &light, m_context.camera, splitNear, splitFar);
+                m_queue.executeShadow(m_context);
+                Shadow::endShadowPass();
+                splitNear = splitFar;
+            }
+            m_context.lightCascadeStart[li] = shadowMapIndex;
+            m_context.lightCascadeCount[li] = cascadeCount;
+            m_context.lightShadowMapIndex[li] = shadowMapIndex;
+            shadowMapIndex += cascadeCount;
+        } else {
+            Shadow::beginShadowPass(shadowMapIndex, &light, sceneCenter, sceneRadius);
+            m_queue.executeShadow(m_context);
+            Shadow::endShadowPass();
+            m_context.lightCascadeStart[li] = shadowMapIndex;
+            m_context.lightCascadeCount[li] = 1;
+            m_context.lightShadowMapIndex[li] = shadowMapIndex;
+            shadowMapIndex++;
+        }
 
         m_context.lightCastsShadow[li] = 1;
-        m_context.lightShadowMapIndex[li] = shadowMapIndex;
-        shadowMapIndex++;
         m_context.numShadowMaps = shadowMapIndex;
     }
     

@@ -34,6 +34,8 @@ struct RenderContext {
     int numShadowMaps = 0;
     std::array<int, 4> lightCastsShadow{};
     std::array<int, 4> lightShadowMapIndex{};
+    std::array<int, 4> lightCascadeStart{};
+    std::array<int, 4> lightCascadeCount{};
     
     // Current render pass (for conditional logic in renderables)
     enum class Pass {

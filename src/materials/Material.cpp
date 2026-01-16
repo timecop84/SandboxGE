@@ -112,6 +112,14 @@ void Material::bind(const RenderContext& context) {
         if (mapIndexLoc != -1) {
             glUniform1iv(mapIndexLoc, 4, context.lightShadowMapIndex.data());
         }
+        GLint cascadeStartLoc = glGetUniformLocation(prog->getProgramId(), "lightCascadeStart");
+        if (cascadeStartLoc != -1) {
+            glUniform1iv(cascadeStartLoc, 4, context.lightCascadeStart.data());
+        }
+        GLint cascadeCountLoc = glGetUniformLocation(prog->getProgramId(), "lightCascadeCount");
+        if (cascadeCountLoc != -1) {
+            glUniform1iv(cascadeCountLoc, 4, context.lightCascadeCount.data());
+        }
 
         prog->setUniform("iblEnabled", context.iblEnabled ? 1 : 0);
         prog->setUniform("iblIntensity", context.iblIntensity);
@@ -143,7 +151,7 @@ void Material::bind(const RenderContext& context) {
             prog->setUniform("lightWorldPos", context.mainLightPosition);
             prog->setUniform("lightColor", context.mainLightColor);
             if (context.camera) {
-                prog->setUniform("view", context.camera->getViewMatrix());
+                prog->setUniform("viewMatrix", context.camera->getViewMatrix());
             }
             GLint screenLoc = glGetUniformLocation(prog->getProgramId(), "screenSize");
             if (screenLoc != -1) {
