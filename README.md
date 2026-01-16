@@ -135,6 +135,9 @@ Renderables are submitted as raw pointers (`IRenderable*`). Ownership stays with
 - viewport (`viewportWidth`, `viewportHeight`)
 - current pass (`Pass::{SHADOW,SCENE,SSAO,COMPOSITE}`)
 - shadow matrices (`shadowMatrices[4]`)
+- cascade/shadow routing (`useCascades`, `cascadeSplits`, `lightShadowMapIndex`, `lightCascadeStart`, `lightCascadeCount`)
+- environment inputs (`envMapTextureId`, `iblIrradianceMap`, `iblPrefilterMap`, `iblBrdfLut`)
+- refraction inputs (`refractionSourceTexture`, `mainLightPosition`, `mainLightColor`)
 
 ---
 
@@ -186,6 +189,10 @@ Common factories:
 - `Material::createSilkPBR(...)`
 - `Material::createShadow()`
 
+Other helpers:
+
+- `setRefractionIor(...)` for the `Refraction` shader
+
 RAII-friendly overloads:
 
 - `Material::createPhongUnique(...)`
@@ -203,9 +210,11 @@ Per-frame toggles and parameters used by the renderer:
 
 - Visibility toggles (`clothVisibility`, `floorVisibility`, `sphereVisibility`, `customMeshVisibility`, …)
 - Post effects (`shadowEnabled`, `ssaoEnabled`, …)
+- Cascaded shadows (`useCascadedShadows`, `cascadeCount`, `cascadeSplitLambda`, `cascadeMaxDistance`, `debugCascades`)
 - Primary light (`lightPosition`, `lightDiffuse`, …)
 - Additional lights (`std::vector<ExtraLight> lights`)
 - Material-related knobs for Silk/SilkPBR and checker overlay
+- Environment/IBL (`envMapTextureId`, `envMapIntensity`, `iblEnabled`, `iblIrradianceMap`, `iblPrefilterMap`, `iblBrdfLut`)
 
 ### Resource Manager
 
