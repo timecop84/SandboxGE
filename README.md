@@ -211,9 +211,11 @@ Per-frame toggles and parameters used by the renderer:
 - Visibility toggles (`clothVisibility`, `floorVisibility`, `sphereVisibility`, `customMeshVisibility`, …)
 - Post effects (`shadowEnabled`, `ssaoEnabled`, …)
 - Cascaded shadows (`useCascadedShadows`, `cascadeCount`, `cascadeSplitLambda`, `cascadeMaxDistance`, `debugCascades`)
+- Cascaded shadows (`useCascadedShadows`, `cascadeCount`, `cascadeSplitLambda`, `cascadeMaxDistance`, `debugCascades`)
 - Primary light (`lightPosition`, `lightDiffuse`, …)
 - Additional lights (`std::vector<ExtraLight> lights`)
 - Material-related knobs for Silk/SilkPBR and checker overlay
+- Environment/IBL (`envMapTextureId`, `envMapIntensity`, `iblEnabled`, `iblIrradianceMap`, `iblPrefilterMap`, `iblBrdfLut`)
 - Environment/IBL (`envMapTextureId`, `envMapIntensity`, `iblEnabled`, `iblIrradianceMap`, `iblPrefilterMap`, `iblBrdfLut`)
 
 ### Resource Manager

@@ -5,6 +5,7 @@ in vec3 fragmentNormal;
 in vec3 worldPos;
 in vec3 viewDir;
 in vec3 vPosition;
+in vec2 TexCoords;
 
 // Output
 out vec4 fragColor;
@@ -33,6 +34,7 @@ uniform sampler2D shadowMap0;
 uniform sampler2D shadowMap1;
 uniform sampler2D shadowMap2;
 uniform sampler2D shadowMap3;
+uniform sampler2D texture_diffuse;
 uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
 uniform float shadowBias;
@@ -187,6 +189,9 @@ void main() {
     
     // Material properties from UBO
     vec3 albedo = materialData.diffuse.rgb;
+    if (materialData.useTexture.x != 0) {
+        albedo *= texture(texture_diffuse, TexCoords).rgb;
+    }
     float metal = materialData.metallic.x;
     float rough = max(materialData.roughness.x, 0.04);
 

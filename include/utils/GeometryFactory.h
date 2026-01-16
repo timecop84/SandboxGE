@@ -41,6 +41,7 @@ public:
     std::shared_ptr<Geometry> createCube(float size = 1.0f);
     std::shared_ptr<Geometry> createTriangle(float size = 1.0f);
     std::shared_ptr<Geometry> createBoundingBox();
+    std::shared_ptr<Geometry> createOBJ(const std::string& name, const std::string& path, float scale = 1.0f);
     
     // Management
     void clear();

@@ -4,6 +4,7 @@
 in vec3 fragmentNormal;
 in vec3 worldPos;
 in vec3 vPosition;
+in vec2 TexCoords;
 
 // Output
 out vec4 fragColor;
@@ -32,6 +33,7 @@ uniform sampler2D shadowMap0;
 uniform sampler2D shadowMap1;
 uniform sampler2D shadowMap2;
 uniform sampler2D shadowMap3;
+uniform sampler2D texture_diffuse;
 uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
 uniform float shadowBias;
@@ -125,9 +127,14 @@ void main() {
     int lightCountN = lightCount.x;
     float ambientStrengthN = ambientStrength.x;
     
+    vec3 albedo = materialData.diffuse.rgb;
+    if (materialData.useTexture.x != 0) {
+        albedo *= texture(texture_diffuse, TexCoords).rgb;
+    }
+
     // Fake ambient bounce: Use material color to simulate light bouncing off nearby surfaces
     // More saturated materials contribute more color bleeding
-    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrengthN * 0.3;
+    vec3 colorBleeding = albedo * ambientStrengthN * 0.3;
     
     // Ambient component with color bleeding
     vec3 ambient = (materialData.ambient.rgb + colorBleeding) * ambientStrengthN;
@@ -188,7 +195,7 @@ void main() {
         
         // Diffuse component with attenuation
         float diff = max(dot(normal, lightDir), 0.0);
-        diffuse += lightColor * materialData.diffuse.rgb * diff * attenuation * shadow;
+        diffuse += lightColor * albedo * diff * attenuation * shadow;
         
         // Specular component (Blinn-Phong) with physical attenuation
         vec3 halfVec = normalize(lightDir + viewDir);

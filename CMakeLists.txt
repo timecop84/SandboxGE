@@ -51,6 +51,7 @@ if(NOT SANDBOX_GE_EXTRA_INCLUDE_DIRS)
     endif()
 endif()
 set(SANDBOX_GE_GLAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/glad)
+set(SANDBOX_GE_OBJ_PARSER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/OBJParser)
 
 set(SANDBOX_GE_SOURCES
     # Core infrastructure
@@ -169,6 +170,11 @@ else()
     target_link_libraries(SandboxGE PUBLIC ${_SANDBOX_GE_GLFW_TARGET} GL)
 endif()
 
+if(EXISTS "${SANDBOX_GE_OBJ_PARSER_DIR}/CMakeLists.txt")
+    add_subdirectory(${SANDBOX_GE_OBJ_PARSER_DIR} OBJParser)
+    target_link_libraries(SandboxGE PUBLIC OBJParser)
+endif()
+
 # ===== Test New API =====
 add_executable(TestNewAPI demo/test_new_api.cpp)
 target_include_directories(TestNewAPI PRIVATE 
@@ -217,8 +223,14 @@ if(SANDBOX_GE_BUILD_DEMO)
     )
 
     # Unified Renderer Demo (new architecture)
-    add_executable(UnifiedDemo demo/demo_unified.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
-    target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends)
+    add_executable(UnifiedDemo demo/demo_unified.cpp demo/winmain.cpp ${_SANDBOX_GE_IMGUI_SOURCES})
+    if(WIN32)
+        target_sources(UnifiedDemo PRIVATE demo/UnifiedDemo.rc)
+        set_source_files_properties(demo/UnifiedDemo.rc PROPERTIES LANGUAGE RC)
+        set_target_properties(UnifiedDemo PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
+    target_include_directories(UnifiedDemo PRIVATE ${_SANDBOX_GE_IMGUI_DIR} ${_SANDBOX_GE_IMGUI_DIR}/backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/stb)
     target_link_libraries(UnifiedDemo PRIVATE SandboxGE)
     target_compile_definitions(UnifiedDemo PRIVATE _USE_MATH_DEFINES)
     

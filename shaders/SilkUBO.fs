@@ -4,6 +4,7 @@
 in vec3 fragmentNormal;
 in vec3 worldPos;
 in vec3 vPosition;
+in vec2 TexCoords;
 
 // Output
 out vec4 fragColor;
@@ -32,6 +33,7 @@ uniform sampler2D shadowMap0;
 uniform sampler2D shadowMap1;
 uniform sampler2D shadowMap2;
 uniform sampler2D shadowMap3;
+uniform sampler2D texture_diffuse;
 uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
 uniform float shadowBias;
@@ -138,9 +140,14 @@ void main() {
     vec3 tangent = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
     vec3 bitangent = cross(normal, tangent);
     
+    vec3 albedo = materialData.diffuse.rgb;
+    if (materialData.useTexture.x != 0) {
+        albedo *= texture(texture_diffuse, TexCoords).rgb;
+    }
+
     // Ambient with color bleeding (silk tends to have rich colors)
-    vec3 colorBleeding = materialData.diffuse.rgb * ambientStrengthN * 0.4;
-    vec3 ambient = (materialData.diffuse.rgb + colorBleeding) * ambientStrengthN;
+    vec3 colorBleeding = albedo * ambientStrengthN * 0.4;
+    vec3 ambient = (albedo + colorBleeding) * ambientStrengthN;
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 diffuseAccum = vec3(0.0);
@@ -190,12 +197,12 @@ void main() {
             shadow = shadowFactor;
             
             // Ambient bounce from shadowed areas (fake GI)
-            ambient += materialData.diffuse.rgb * lightColor * attenuation * (1.0 - shadowFactor) * 0.15;
+            ambient += albedo * lightColor * attenuation * (1.0 - shadowFactor) * 0.15;
         }
         
         // Diffuse with physical attenuation
         float diff = max(dot(normal, lightDir), 0.0);
-        diffuseAccum += lightColor * materialData.diffuse.rgb * diff * attenuation * 0.7 * shadow;
+        diffuseAccum += lightColor * albedo * diff * attenuation * 0.7 * shadow;
         
         // Anisotropic specular (silk highlight)
         vec3 halfVec = normalize(lightDir + viewDir);

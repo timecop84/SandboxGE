@@ -3,9 +3,9 @@ uniform bool Normalize;
 // the eye position of the camera
 uniform vec3 viewerPos;
 out vec3 fragmentNormal;
-in vec3 inVert;
-in vec3 inNormal;
-in vec2 inUV;
+layout(location = 0) in vec3 inVert;
+layout(location = 1) in vec2 inUV;
+layout(location = 2) in vec3 inNormal;
 out vec3 worldPos;
 
 struct Materials

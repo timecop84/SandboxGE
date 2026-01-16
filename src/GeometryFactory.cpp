@@ -1,5 +1,6 @@
 #include <glad/gl.h>
 #include "utils/GeometryFactory.h"
+#include "io/ObjParser.h"
 #include <iostream>
 #include <cmath>
 #include <limits>
@@ -114,10 +115,17 @@ std::shared_ptr<Geometry> GeometryFactory::createSphere(float radius, int segmen
             float y = radius * std::cos(phi);
             float z = radius * std::sin(phi) * std::sin(theta);
             
+            float u = static_cast<float>(j) / static_cast<float>(segments);
+            float v = static_cast<float>(i) / static_cast<float>(segments);
+
             // Position
             vertices.push_back(x);
             vertices.push_back(y);
             vertices.push_back(z);
+
+            // UV
+            vertices.push_back(u);
+            vertices.push_back(v);
             
             // Normal
             vertices.push_back(x / radius);
@@ -158,40 +166,40 @@ std::shared_ptr<Geometry> GeometryFactory::createCube(float size) {
     
     std::vector<float> vertices = {
         // Front face
-        -half, -half,  half,  0.0f,  0.0f,  1.0f,
-         half, -half,  half,  0.0f,  0.0f,  1.0f,
-         half,  half,  half,  0.0f,  0.0f,  1.0f,
-        -half,  half,  half,  0.0f,  0.0f,  1.0f,
+        -half, -half,  half,  0.0f, 0.0f,  0.0f,  0.0f,  1.0f,
+         half, -half,  half,  1.0f, 0.0f,  0.0f,  0.0f,  1.0f,
+         half,  half,  half,  1.0f, 1.0f,  0.0f,  0.0f,  1.0f,
+        -half,  half,  half,  0.0f, 1.0f,  0.0f,  0.0f,  1.0f,
         
         // Back face
-        -half, -half, -half,  0.0f,  0.0f, -1.0f,
-        -half,  half, -half,  0.0f,  0.0f, -1.0f,
-         half,  half, -half,  0.0f,  0.0f, -1.0f,
-         half, -half, -half,  0.0f,  0.0f, -1.0f,
+        -half, -half, -half,  1.0f, 0.0f,  0.0f,  0.0f, -1.0f,
+        -half,  half, -half,  1.0f, 1.0f,  0.0f,  0.0f, -1.0f,
+         half,  half, -half,  0.0f, 1.0f,  0.0f,  0.0f, -1.0f,
+         half, -half, -half,  0.0f, 0.0f,  0.0f,  0.0f, -1.0f,
         
         // Left face
-        -half,  half,  half, -1.0f,  0.0f,  0.0f,
-        -half,  half, -half, -1.0f,  0.0f,  0.0f,
-        -half, -half, -half, -1.0f,  0.0f,  0.0f,
-        -half, -half,  half, -1.0f,  0.0f,  0.0f,
+        -half,  half,  half,  1.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+        -half,  half, -half,  0.0f, 1.0f, -1.0f,  0.0f,  0.0f,
+        -half, -half, -half,  0.0f, 0.0f, -1.0f,  0.0f,  0.0f,
+        -half, -half,  half,  1.0f, 0.0f, -1.0f,  0.0f,  0.0f,
         
         // Right face
-         half,  half,  half,  1.0f,  0.0f,  0.0f,
-         half, -half,  half,  1.0f,  0.0f,  0.0f,
-         half, -half, -half,  1.0f,  0.0f,  0.0f,
-         half,  half, -half,  1.0f,  0.0f,  0.0f,
+         half,  half,  half,  0.0f, 1.0f,  1.0f,  0.0f,  0.0f,
+         half, -half,  half,  0.0f, 0.0f,  1.0f,  0.0f,  0.0f,
+         half, -half, -half,  1.0f, 0.0f,  1.0f,  0.0f,  0.0f,
+         half,  half, -half,  1.0f, 1.0f,  1.0f,  0.0f,  0.0f,
         
         // Top face
-        -half,  half, -half,  0.0f,  1.0f,  0.0f,
-        -half,  half,  half,  0.0f,  1.0f,  0.0f,
-         half,  half,  half,  0.0f,  1.0f,  0.0f,
-         half,  half, -half,  0.0f,  1.0f,  0.0f,
+        -half,  half, -half,  0.0f, 1.0f,  0.0f,  1.0f,  0.0f,
+        -half,  half,  half,  0.0f, 0.0f,  0.0f,  1.0f,  0.0f,
+         half,  half,  half,  1.0f, 0.0f,  0.0f,  1.0f,  0.0f,
+         half,  half, -half,  1.0f, 1.0f,  0.0f,  1.0f,  0.0f,
         
         // Bottom face
-        -half, -half, -half,  0.0f, -1.0f,  0.0f,
-         half, -half, -half,  0.0f, -1.0f,  0.0f,
-         half, -half,  half,  0.0f, -1.0f,  0.0f,
-        -half, -half,  half,  0.0f, -1.0f,  0.0f,
+        -half, -half, -half,  1.0f, 1.0f,  0.0f, -1.0f,  0.0f,
+         half, -half, -half,  0.0f, 1.0f,  0.0f, -1.0f,  0.0f,
+         half, -half,  half,  0.0f, 0.0f,  0.0f, -1.0f,  0.0f,
+        -half, -half,  half,  1.0f, 0.0f,  0.0f, -1.0f,  0.0f,
     };
     
     std::vector<unsigned int> indices = {
@@ -221,28 +229,28 @@ std::shared_ptr<Geometry> GeometryFactory::createTriangle(float size) {
     // Create a 3D pyramid/tetrahedron-style triangle
     std::vector<float> vertices = {
         // Base triangle (y = 0)
-        -half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back left
-         half, 0.0f, -height/3.0f,  0.0f, -1.0f, 0.0f,  // back right
-         0.0f, 0.0f,  height*2.0f/3.0f,  0.0f, -1.0f, 0.0f,  // front
+        -half, 0.0f, -height/3.0f,  0.0f, 0.0f,  0.0f, -1.0f, 0.0f,  // back left
+         half, 0.0f, -height/3.0f,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,  // back right
+         0.0f, 0.0f,  height*2.0f/3.0f,  0.5f, 1.0f,  0.0f, -1.0f, 0.0f,  // front
         
         // Apex (forms pyramid)
-         0.0f, height, 0.0f,  0.0f, 1.0f, 0.0f,  // top point
+         0.0f, height, 0.0f,  0.5f, 0.5f,  0.0f, 1.0f, 0.0f,  // top point
         
         // Side faces (need separate vertices for proper normals)
         // Front-left face
-        -half, 0.0f, -height/3.0f,  -0.866f, 0.5f, -0.5f,
-         0.0f, height, 0.0f,  -0.866f, 0.5f, -0.5f,
-         0.0f, 0.0f,  height*2.0f/3.0f,  -0.866f, 0.5f, -0.5f,
+        -half, 0.0f, -height/3.0f,  0.0f, 0.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  0.5f, 1.0f,  -0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  1.0f, 0.0f,  -0.866f, 0.5f, -0.5f,
         
         // Front-right face
-         half, 0.0f, -height/3.0f,  0.866f, 0.5f, -0.5f,
-         0.0f, 0.0f,  height*2.0f/3.0f,  0.866f, 0.5f, -0.5f,
-         0.0f, height, 0.0f,  0.866f, 0.5f, -0.5f,
+         half, 0.0f, -height/3.0f,  0.0f, 0.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, 0.0f,  height*2.0f/3.0f,  1.0f, 0.0f,  0.866f, 0.5f, -0.5f,
+         0.0f, height, 0.0f,  0.5f, 1.0f,  0.866f, 0.5f, -0.5f,
         
         // Back face
-        -half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
-         half, 0.0f, -height/3.0f,  0.0f, 0.5f, -0.866f,
-         0.0f, height, 0.0f,  0.0f, 0.5f, -0.866f,
+        -half, 0.0f, -height/3.0f,  0.0f, 0.0f,  0.0f, 0.5f, -0.866f,
+         half, 0.0f, -height/3.0f,  1.0f, 0.0f,  0.0f, 0.5f, -0.866f,
+         0.0f, height, 0.0f,  0.5f, 1.0f,  0.0f, 0.5f, -0.866f,
     };
     
     std::vector<unsigned int> indices = {
@@ -265,15 +273,15 @@ std::shared_ptr<Geometry> GeometryFactory::createBoundingBox() {
     }
     
     std::vector<float> vertices = {
-        // Position only for bounding box wireframe
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
+        // Position + UV + normal (dummy)
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
     };
     
     std::vector<unsigned int> indices = {
@@ -282,6 +290,63 @@ std::shared_ptr<Geometry> GeometryFactory::createBoundingBox() {
         0, 4, 1, 5, 2, 6, 3, 7  // Vertical edges
     };
     
+    return createGeometry(name, vertices, indices);
+}
+
+std::shared_ptr<Geometry> GeometryFactory::createOBJ(const std::string& name,
+                                                     const std::string& path,
+                                                     float scale) {
+    auto existing = getGeometry(name);
+    if (existing) {
+        return existing;
+    }
+
+    cloth::io::ObjMesh mesh;
+    std::string error;
+    if (!cloth::io::loadOBJ(path, mesh, error)) {
+        std::cerr << "GeometryFactory: OBJ load failed: " << error << std::endl;
+        return nullptr;
+    }
+
+    std::vector<float> vertices;
+    const size_t vertexCount = mesh.positions.size() / 3;
+    vertices.reserve(vertexCount * 8);
+
+    for (size_t i = 0; i < vertexCount; ++i) {
+        size_t base = i * 3;
+        float px = mesh.positions[base + 0] * scale;
+        float py = mesh.positions[base + 1] * scale;
+        float pz = mesh.positions[base + 2] * scale;
+        vertices.push_back(px);
+        vertices.push_back(py);
+        vertices.push_back(pz);
+
+        if (mesh.uvs.size() >= (i + 1) * 2) {
+            size_t uvBase = i * 2;
+            vertices.push_back(mesh.uvs[uvBase + 0]);
+            vertices.push_back(mesh.uvs[uvBase + 1]);
+        } else {
+            vertices.push_back(0.0f);
+            vertices.push_back(0.0f);
+        }
+
+        if (mesh.normals.size() >= mesh.positions.size()) {
+            vertices.push_back(mesh.normals[base + 0]);
+            vertices.push_back(mesh.normals[base + 1]);
+            vertices.push_back(mesh.normals[base + 2]);
+        } else {
+            vertices.push_back(0.0f);
+            vertices.push_back(1.0f);
+            vertices.push_back(0.0f);
+        }
+    }
+
+    std::vector<unsigned int> indices;
+    indices.reserve(mesh.indices.size());
+    for (uint32_t idx : mesh.indices) {
+        indices.push_back(static_cast<unsigned int>(idx));
+    }
+
     return createGeometry(name, vertices, indices);
 }
 
@@ -316,10 +381,12 @@ void GeometryFactory::createVAO(Geometry* geometry, const std::vector<float>& ve
     glBindBuffer(GL_ARRAY_BUFFER, geometry->VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
     
-    // Set vertex attributes (position at 0, normal at 2 to match shader)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // Set vertex attributes (position at 0, uv at 1, normal at 2)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
     
     // Handle indices if provided
@@ -330,7 +397,7 @@ void GeometryFactory::createVAO(Geometry* geometry, const std::vector<float>& ve
         geometry->indexCount = indices.size();
     }
     
-    geometry->vertexCount = vertices.size() / 6; // 6 floats per vertex (pos + normal)
+    geometry->vertexCount = vertices.size() / 8; // 8 floats per vertex (pos + uv + normal)
     
     glBindVertexArray(0);
 }
