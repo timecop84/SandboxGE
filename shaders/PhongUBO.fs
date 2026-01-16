@@ -3,6 +3,7 @@
 // Inputs from vertex shader
 in vec3 fragmentNormal;
 in vec3 worldPos;
+in vec3 vPosition;
 
 // Output
 out vec4 fragColor;
@@ -35,6 +36,12 @@ uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
 uniform float shadowBias;
 uniform float shadowSoftness;
+uniform int useCascades;
+uniform int cascadeCount;
+uniform float cascadeSplits[4];
+uniform int debugCascades;
+uniform int lightCastsShadow[4];
+uniform int lightShadowMapIndex[4];
 
 // View position for specular
 uniform vec3 viewPos;
@@ -76,6 +83,38 @@ float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float ligh
     return shadow / float(samples);
 }
 
+float sampleShadowByIndex(int index, vec3 pos, float lightSize) {
+    vec4 shadowCoord;
+    if (index == 0) {
+        shadowCoord = shadowMatrices[0] * vec4(pos, 1.0);
+        return sampleShadow(shadowMap0, shadowCoord, shadowBias, lightSize);
+    }
+    if (index == 1) {
+        shadowCoord = shadowMatrices[1] * vec4(pos, 1.0);
+        return sampleShadow(shadowMap1, shadowCoord, shadowBias, lightSize);
+    }
+    if (index == 2) {
+        shadowCoord = shadowMatrices[2] * vec4(pos, 1.0);
+        return sampleShadow(shadowMap2, shadowCoord, shadowBias, lightSize);
+    }
+    if (index == 3) {
+        shadowCoord = shadowMatrices[3] * vec4(pos, 1.0);
+        return sampleShadow(shadowMap3, shadowCoord, shadowBias, lightSize);
+    }
+    return 1.0;
+}
+
+float sampleCascadeShadow(vec3 pos, float lightSize) {
+    float minShadow = 1.0;
+    int count = cascadeCount > 0 ? cascadeCount : 1;
+    if (count > 4) count = 4;
+    for (int i = 0; i < count; ++i) {
+        float shadow = sampleShadowByIndex(i, pos, lightSize);
+        minShadow = min(minShadow, shadow);
+    }
+    return minShadow;
+}
+
 // Phong lighting with physically-based improvements
 void main() {
     vec3 normal = normalize(fragmentNormal);
@@ -95,6 +134,25 @@ void main() {
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
     
+    if (debugCascades != 0 && useCascades != 0) {
+        float viewDepth = -vPosition.z;
+        int count = cascadeCount > 0 ? cascadeCount : 1;
+        if (count > 4) count = 4;
+        int cascadeIndex = count - 1;
+        for (int i = 0; i < count; ++i) {
+            if (viewDepth <= cascadeSplits[i]) {
+                cascadeIndex = i;
+                break;
+            }
+        }
+        vec3 debugColor = vec3(1.0, 0.0, 0.0);
+        if (cascadeIndex == 1) debugColor = vec3(0.0, 1.0, 0.0);
+        else if (cascadeIndex == 2) debugColor = vec3(0.0, 0.2, 1.0);
+        else if (cascadeIndex == 3) debugColor = vec3(1.0, 1.0, 0.0);
+        fragColor = vec4(debugColor, 1.0);
+        return;
+    }
+
     for (int i = 0; i < lightCountN; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
         vec3 lightColor = lightColors[i].rgb;
@@ -108,18 +166,14 @@ void main() {
         // Use area light approximation with size based on light intensity
         float lightSize = 0.5 + lightIntensity * 0.5; // Larger lights = softer shadows
         float shadow = 1.0;
-        if (shadowsEnabled && i < 4 && lightColors[i].a > 0.5) {
-            vec4 shadowCoord;
-            if (i == 0) shadowCoord = shadowMatrices[0] * vec4(worldPos, 1.0);
-            else if (i == 1) shadowCoord = shadowMatrices[1] * vec4(worldPos, 1.0);
-            else if (i == 2) shadowCoord = shadowMatrices[2] * vec4(worldPos, 1.0);
-            else shadowCoord = shadowMatrices[3] * vec4(worldPos, 1.0);
-            
-            float shadowFactor;
-            if (i == 0) shadowFactor = sampleShadow(shadowMap0, shadowCoord, shadowBias, lightSize);
-            else if (i == 1) shadowFactor = sampleShadow(shadowMap1, shadowCoord, shadowBias, lightSize);
-            else if (i == 2) shadowFactor = sampleShadow(shadowMap2, shadowCoord, shadowBias, lightSize);
-            else shadowFactor = sampleShadow(shadowMap3, shadowCoord, shadowBias, lightSize);
+        if (shadowsEnabled && i < 4 && lightCastsShadow[i] != 0) {
+            float shadowFactor = 1.0;
+            if (i == 0 && useCascades != 0) {
+                shadowFactor = sampleCascadeShadow(worldPos, lightSize);
+            } else {
+                int mapIndex = lightShadowMapIndex[i];
+                shadowFactor = sampleShadowByIndex(mapIndex, worldPos, lightSize);
+            }
             
             // Softer shadow transition
             shadow = shadowFactor * 0.8 + 0.2;

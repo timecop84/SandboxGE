@@ -57,6 +57,10 @@ void Material::setTexture(const std::string& name, TextureHandle texture) {
     m_uboData.useTexture = texture ? 1 : 0;
 }
 
+void Material::setRefractionIor(float value) {
+    m_refractionIor = value;
+}
+
 void Material::bind(const RenderContext& context) {
     auto* prog = (*ShaderLib::instance())[m_shaderName];
     if (!prog) {
@@ -79,6 +83,7 @@ void Material::bind(const RenderContext& context) {
         prog->setUniform("shadowMap1", 9);
         prog->setUniform("shadowMap2", 10);
         prog->setUniform("shadowMap3", 11);
+        prog->setUniform("numShadowLights", context.numShadowMaps);
         
         GLint shadowsLoc = glGetUniformLocation(prog->getProgramId(), "shadowsEnabled");
         if (shadowsLoc != -1) {
@@ -89,6 +94,68 @@ void Material::bind(const RenderContext& context) {
 
         prog->setUniform("shadowBias", Shadow::getBias());
         prog->setUniform("shadowSoftness", Shadow::getSoftness());
+        prog->setUniform("shadowMapSize", static_cast<float>(Shadow::getMapSize()));
+
+        prog->setUniform("useCascades", context.useCascades ? 1 : 0);
+        prog->setUniform("cascadeCount", context.cascadeCount);
+        prog->setUniform("debugCascades", context.debugCascades ? 1 : 0);
+        GLint splitsLoc = glGetUniformLocation(prog->getProgramId(), "cascadeSplits");
+        if (splitsLoc != -1) {
+            glUniform1fv(splitsLoc, 4, context.cascadeSplits.data());
+        }
+        GLint castsLoc = glGetUniformLocation(prog->getProgramId(), "lightCastsShadow");
+        if (castsLoc != -1) {
+            glUniform1iv(castsLoc, 4, context.lightCastsShadow.data());
+        }
+        GLint mapIndexLoc = glGetUniformLocation(prog->getProgramId(), "lightShadowMapIndex");
+        if (mapIndexLoc != -1) {
+            glUniform1iv(mapIndexLoc, 4, context.lightShadowMapIndex.data());
+        }
+
+        prog->setUniform("iblEnabled", context.iblEnabled ? 1 : 0);
+        prog->setUniform("iblIntensity", context.iblIntensity);
+        if (context.iblIrradianceMap) {
+            glActiveTexture(GL_TEXTURE12);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, context.iblIrradianceMap);
+            prog->setUniform("irradianceMap", 12);
+        }
+        if (context.iblPrefilterMap) {
+            glActiveTexture(GL_TEXTURE13);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, context.iblPrefilterMap);
+            prog->setUniform("prefilterMap", 13);
+        }
+        if (context.iblBrdfLut) {
+            glActiveTexture(GL_TEXTURE14);
+            glBindTexture(GL_TEXTURE_2D, context.iblBrdfLut);
+            prog->setUniform("brdfLUT", 14);
+        }
+        prog->setUniform("envMapIntensity", context.envMapIntensity);
+        if (context.envMapTextureId) {
+            glActiveTexture(GL_TEXTURE15);
+            glBindTexture(GL_TEXTURE_2D, context.envMapTextureId);
+            prog->setUniform("envMap", 15);
+        }
+
+        if (m_shaderName == "Refraction") {
+            prog->setUniform("ior", m_refractionIor);
+            prog->setUniform("cameraPos", context.viewPosition);
+            prog->setUniform("lightWorldPos", context.mainLightPosition);
+            prog->setUniform("lightColor", context.mainLightColor);
+            if (context.camera) {
+                prog->setUniform("view", context.camera->getViewMatrix());
+            }
+            GLint screenLoc = glGetUniformLocation(prog->getProgramId(), "screenSize");
+            if (screenLoc != -1) {
+                glUniform2f(screenLoc,
+                           static_cast<float>(context.viewportWidth),
+                           static_cast<float>(context.viewportHeight));
+            }
+            if (context.refractionSourceTexture) {
+                glActiveTexture(GL_TEXTURE6);
+                glBindTexture(GL_TEXTURE_2D, context.refractionSourceTexture);
+                prog->setUniform("texture_diffuse", 6);
+            }
+        }
     }
     
     int slot = 0;

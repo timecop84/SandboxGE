@@ -28,5 +28,11 @@ float getRadius();
 float getBias();
 float getIntensity();
 
+/// Scene color/depth access (for screen-space effects)
+unsigned int getSceneColorTexture();
+unsigned int getSceneFramebuffer();
+int getWidth();
+int getHeight();
+
 } // namespace SSAO
 } // namespace sandbox

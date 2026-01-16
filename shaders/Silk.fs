@@ -20,6 +20,10 @@ uniform mat4 lightSpaceMatrices[MAX_SHADOW_LIGHTS];
 uniform float lightIntensities[MAX_SHADOW_LIGHTS];
 uniform int numShadowLights;
 uniform float shadowMapSize;
+uniform int useCascades;
+uniform int cascadeCount;
+uniform float cascadeSplits[MAX_SHADOW_LIGHTS];
+uniform int debugCascades;
 
 // Shadow map (legacy)
 uniform sampler2DShadow shadowMap;
@@ -142,6 +146,18 @@ float calculateMultiShadow(vec3 normal, vec3 lightDir)
 {
     if (shadowEnabled == 0) return 1.0;
     if (numShadowLights <= 0) return calculateShadow(fragPosLightSpace, normal, lightDir);
+
+    if (useCascades != 0) {
+        float minShadow = 1.0;
+        vec4 wPos = vec4(worldPos, 1.0);
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        for (int i = 0; i < count && i < MAX_SHADOW_LIGHTS; ++i) {
+            vec4 lsPos = lightSpaceMatrices[i] * wPos;
+            float shadowVal = calculateShadowForMap(shadowMaps[i], lsPos, normal, lightDir);
+            minShadow = min(minShadow, shadowVal);
+        }
+        return minShadow;
+    }
     
     float totalShadowContrib = 0.0;
     float totalIntensity = 0.0;
@@ -315,6 +331,24 @@ void main()
     vec3 aoTint = mix(aoGroundColor, vec3(1.0), ao);
     
     // Calculate shadow from all shadow-casting lights
+    if (debugCascades != 0 && useCascades != 0) {
+        float viewDepth = -vPosition.z;
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        int cascadeIndex = count - 1;
+        for (int i = 0; i < count; ++i) {
+            if (viewDepth <= cascadeSplits[i]) {
+                cascadeIndex = i;
+                break;
+            }
+        }
+        vec3 debugColor = vec3(1.0, 0.0, 0.0);
+        if (cascadeIndex == 1) debugColor = vec3(0.0, 1.0, 0.0);
+        else if (cascadeIndex == 2) debugColor = vec3(0.0, 0.2, 1.0);
+        else if (cascadeIndex == 3) debugColor = vec3(1.0, 1.0, 0.0);
+        fragColour = vec4(debugColor, 1.0);
+        return;
+    }
+
     float shadow = calculateMultiShadow(N, L);
     
     // Apply shadow - darken lit parts, keep some ambient

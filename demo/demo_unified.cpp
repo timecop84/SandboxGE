@@ -8,6 +8,8 @@
 #include "utils/ShaderPathResolver.h"
 #include "utils/ShaderLib.h"
 #include "utils/GeometryFactory.h"
+#include "EnvMapLoader.h"
+#include "IBL.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -50,6 +52,32 @@ std::string findShaderRoot() {
         }
     }
     return "shaders/";
+}
+
+std::string findEnvMapPath() {
+    namespace fs = std::filesystem;
+    const fs::path filename = fs::path("assets") / "hdri" / "glass_passage_4k.exr";
+    std::vector<fs::path> candidates;
+    auto addCandidates = [&](fs::path base) {
+        for (int i = 0; i < 4; ++i) {
+            if (base.empty()) break;
+            candidates.push_back(base / filename);
+            fs::path parent = base.parent_path();
+            if (parent == base) break;
+            base = parent;
+        }
+    };
+
+    addCandidates(fs::path(ShaderPath::getExecutableDir()));
+    addCandidates(fs::current_path());
+
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate)) {
+            return candidate.string();
+        }
+    }
+
+    return filename.string();
 }
 
 struct FlyCamera {
@@ -139,6 +167,8 @@ struct UISettings {
     
     int sphereMaterialType = 1; // 0=Phong, 1=Silk, 2=PBR
     int cubeMaterialType = 0;
+    float sphereIor = 1.52f;
+    float cubeIor = 1.52f;
     
     glm::vec3 sphereColor{0.8f, 0.45f, 0.45f};
     glm::vec3 cubeColor{0.3f, 0.7f, 1.0f};
@@ -160,6 +190,11 @@ struct UISettings {
     bool shadowEnabled = true;
     float shadowBias = 0.005f;
     float shadowSoftness = 2.0f;
+    bool useCascadedShadows = true;
+    bool debugCascades = false;
+    int cascadeCount = 4;
+    float cascadeSplitLambda = 0.6f;
+    float cascadeMaxDistance = 120.0f;
     
     bool ssaoEnabled = true;
     float ssaoRadius = 5.0f;
@@ -172,6 +207,11 @@ struct UISettings {
     glm::vec3 lightSpecular{1.0f, 1.0f, 1.0f};
     
     std::vector<sandbox::ExtraLight> extraLights;
+
+    float envMapIntensity = 0.35f;
+    bool iblEnabled = true;
+    float iblIntensity = 1.0f;
+    bool iblReady = false;
 };
 
 void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) {
@@ -217,6 +257,14 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         if (settings.shadowEnabled) {
             ImGui::SliderFloat("Shadow Bias", &settings.shadowBias, 0.001f, 0.02f, "%.4f");
             ImGui::SliderFloat("Shadow Softness", &settings.shadowSoftness, 1.0f, 4.0f, "%.0f");
+            ImGui::Separator();
+            ImGui::Checkbox("Cascaded Shadows", &settings.useCascadedShadows);
+            if (settings.useCascadedShadows) {
+                ImGui::Checkbox("Debug Cascades", &settings.debugCascades);
+                ImGui::SliderInt("Cascade Count", &settings.cascadeCount, 1, 4);
+                ImGui::SliderFloat("Cascade Lambda", &settings.cascadeSplitLambda, 0.0f, 1.0f, "%.2f");
+                ImGui::SliderFloat("Cascade Distance", &settings.cascadeMaxDistance, 20.0f, 250.0f, "%.1f");
+            }
         }
         ImGui::Separator();
         ImGui::Text("Screen-Space AO");
@@ -280,8 +328,8 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
     
     if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("Sphere Material");
-        const char* matTypes[] = {"Phong", "Silk", "PBR"};
-        ImGui::Combo("##SphMat", &settings.sphereMaterialType, matTypes, 3);
+        const char* matTypes[] = {"Phong", "Silk", "PBR", "Refraction"};
+        ImGui::Combo("##SphMat", &settings.sphereMaterialType, matTypes, 4);
         ImGui::ColorEdit3("Sphere Color", &settings.sphereColor.x);
         
         // Show material-specific properties based on type
@@ -294,11 +342,13 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         } else if (settings.sphereMaterialType == 2) {  // PBR
             ImGui::SliderFloat("Metallic##Sph", &settings.sphereMetallic, 0.0f, 1.0f, "%.2f");
             ImGui::SliderFloat("Roughness##Sph", &settings.sphereRoughness, 0.04f, 1.0f, "%.2f");
+        } else if (settings.sphereMaterialType == 3) { // Refraction
+            ImGui::SliderFloat("IOR##Sph", &settings.sphereIor, 1.0f, 2.5f, "%.2f");
         }
         
         ImGui::Separator();
         ImGui::Text("Cube Material");
-        ImGui::Combo("##CubeMat", &settings.cubeMaterialType, matTypes, 3);
+        ImGui::Combo("##CubeMat", &settings.cubeMaterialType, matTypes, 4);
         ImGui::ColorEdit3("Cube Color", &settings.cubeColor.x);
         
         // Show material-specific properties based on type
@@ -311,6 +361,8 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         } else if (settings.cubeMaterialType == 2) {  // PBR
             ImGui::SliderFloat("Metallic##Cube", &settings.cubeMetallic, 0.0f, 1.0f, "%.2f");
             ImGui::SliderFloat("Roughness##Cube", &settings.cubeRoughness, 0.04f, 1.0f, "%.2f");
+        } else if (settings.cubeMaterialType == 3) { // Refraction
+            ImGui::SliderFloat("IOR##Cube", &settings.cubeIor, 1.0f, 2.5f, "%.2f");
         }
         
         ImGui::Checkbox("Cube Wireframe", &settings.cubeWireframe);
@@ -319,16 +371,33 @@ void renderUI(UISettings& settings, const UnifiedRenderer& renderer, float fps) 
         ImGui::ColorEdit3("Triangle Color", &settings.triangleColor.x);
         ImGui::Checkbox("Triangle Wireframe", &settings.triangleWireframe);
     }
+
+    if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Env Intensity", &settings.envMapIntensity, 0.0f, 2.0f, "%.2f");
+        if (!settings.iblReady) {
+            ImGui::BeginDisabled();
+        }
+        ImGui::Checkbox("IBL Enabled", &settings.iblEnabled);
+        ImGui::SliderFloat("IBL Intensity", &settings.iblIntensity, 0.0f, 2.0f, "%.2f");
+        if (!settings.iblReady) {
+            ImGui::EndDisabled();
+        }
+    }
     
     ImGui::End();
 }
 
 // Helper to create material based on type
-Material* createMaterialByType(int type, const glm::vec3& color) {
+Material* createMaterialByType(int type, const glm::vec3& color, float ior) {
     switch (type) {
         case 0: return Material::createPhong(color);
         case 1: return Material::createSilk(color);
         case 2: return Material::createSilkPBR(color);
+        case 3: {
+            auto* mat = new Material("Refraction");
+            mat->setRefractionIor(ior);
+            return mat;
+        }
         default: return Material::createPhong(color);
     }
 }
@@ -389,6 +458,7 @@ int main() {
     (*shaderLib)["PhongUBO"];
     (*shaderLib)["SilkUBO"];
     (*shaderLib)["SilkPBR_UBO"];
+    (*shaderLib)["Refraction"];
     std::cout << "Shaders loaded successfully\n";
 
     // Initialize camera
@@ -456,6 +526,34 @@ int main() {
     // Render settings
     RenderSettings renderSettings;
 
+    int envWidth = 0;
+    int envHeight = 0;
+    GLuint envMapTex = gfx::loadEnvironmentEXR(findEnvMapPath(), &envWidth, &envHeight);
+    renderSettings.envMapTextureId = envMapTex;
+    if (envMapTex == 0) {
+        renderSettings.envMapIntensity = 0.0f;
+    }
+
+    gfx::IBLProcessor ibl;
+    if (envMapTex != 0 && ibl.initialize()) {
+        if (ibl.build(envMapTex)) {
+            renderSettings.iblIrradianceMap = ibl.getIrradianceMap();
+            renderSettings.iblPrefilterMap = ibl.getPrefilterMap();
+            renderSettings.iblBrdfLut = ibl.getBrdfLut();
+            uiSettings.iblReady = true;
+        } else {
+            renderSettings.iblEnabled = false;
+            renderSettings.iblIntensity = 0.0f;
+            uiSettings.iblReady = false;
+        }
+    } else {
+        renderSettings.iblEnabled = false;
+        renderSettings.iblIntensity = 0.0f;
+        uiSettings.iblReady = false;
+    }
+    uiSettings.iblEnabled = renderSettings.iblEnabled;
+    uiSettings.envMapIntensity = renderSettings.envMapIntensity;
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -509,13 +607,13 @@ int main() {
         static int lastSphereMat = -1;
         static int lastCubeMat = -1;
         if (uiSettings.sphereMaterialType != lastSphereMat) {
-            Material* newMat = createMaterialByType(uiSettings.sphereMaterialType, uiSettings.sphereColor);
+            Material* newMat = createMaterialByType(uiSettings.sphereMaterialType, uiSettings.sphereColor, uiSettings.sphereIor);
             sphere.setMaterial(newMat);
             lastSphereMat = uiSettings.sphereMaterialType;
         }
         if (uiSettings.cubeMaterialType != lastCubeMat) {
             delete cubeMaterial;
-            cubeMaterial = createMaterialByType(uiSettings.cubeMaterialType, uiSettings.cubeColor);
+            cubeMaterial = createMaterialByType(uiSettings.cubeMaterialType, uiSettings.cubeColor, uiSettings.cubeIor);
             cube.setMaterial(cubeMaterial);
             lastCubeMat = uiSettings.cubeMaterialType;
         }
@@ -528,22 +626,35 @@ int main() {
         // Apply material-specific properties from UI
         Material* sphereMat = sphere.getMaterial();
         if (sphereMat) {
-            sphereMat->setShininess(uiSettings.sphereShininess);
-            sphereMat->setSpecular(uiSettings.sphereSpecular);
-            sphereMat->setMetallic(uiSettings.sphereMetallic);
-            sphereMat->setRoughness(uiSettings.sphereRoughness);
+            if (uiSettings.sphereMaterialType == 3) {
+                sphereMat->setRefractionIor(uiSettings.sphereIor);
+            } else {
+                sphereMat->setShininess(uiSettings.sphereShininess);
+                sphereMat->setSpecular(uiSettings.sphereSpecular);
+                sphereMat->setMetallic(uiSettings.sphereMetallic);
+                sphereMat->setRoughness(uiSettings.sphereRoughness);
+            }
         }
         if (cubeMaterial) {
-            cubeMaterial->setShininess(uiSettings.cubeShininess);
-            cubeMaterial->setSpecular(uiSettings.cubeSpecular);
-            cubeMaterial->setMetallic(uiSettings.cubeMetallic);
-            cubeMaterial->setRoughness(uiSettings.cubeRoughness);
+            if (uiSettings.cubeMaterialType == 3) {
+                cubeMaterial->setRefractionIor(uiSettings.cubeIor);
+            } else {
+                cubeMaterial->setShininess(uiSettings.cubeShininess);
+                cubeMaterial->setSpecular(uiSettings.cubeSpecular);
+                cubeMaterial->setMetallic(uiSettings.cubeMetallic);
+                cubeMaterial->setRoughness(uiSettings.cubeRoughness);
+            }
         }
 
         // Update render settings from UI
         renderSettings.shadowEnabled = uiSettings.shadowEnabled;
         renderSettings.shadowBias = uiSettings.shadowBias;
         renderSettings.shadowSoftness = uiSettings.shadowSoftness;
+        renderSettings.useCascadedShadows = uiSettings.useCascadedShadows;
+        renderSettings.debugCascades = uiSettings.debugCascades;
+        renderSettings.cascadeCount = uiSettings.cascadeCount;
+        renderSettings.cascadeSplitLambda = uiSettings.cascadeSplitLambda;
+        renderSettings.cascadeMaxDistance = uiSettings.cascadeMaxDistance;
         renderSettings.ssaoEnabled = uiSettings.ssaoEnabled;
         renderSettings.ssaoRadius = uiSettings.ssaoRadius;
         renderSettings.ssaoIntensity = uiSettings.ssaoIntensity;
@@ -561,6 +672,9 @@ int main() {
         renderSettings.lightSpecular[1] = uiSettings.lightSpecular.y;
         renderSettings.lightSpecular[2] = uiSettings.lightSpecular.z;
         renderSettings.lights = uiSettings.extraLights;
+        renderSettings.envMapIntensity = uiSettings.envMapIntensity;
+        renderSettings.iblEnabled = uiSettings.iblEnabled;
+        renderSettings.iblIntensity = uiSettings.iblIntensity;
 
         // Render frame
         renderer.beginFrame(&camera, t);
@@ -592,6 +706,10 @@ int main() {
     // Cleanup
     delete cubeMaterial;
     delete triangleMaterial;
+    ibl.cleanup();
+    if (envMapTex != 0) {
+        glDeleteTextures(1, &envMapTex);
+    }
     
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

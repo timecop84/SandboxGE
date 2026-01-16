@@ -21,6 +21,10 @@ uniform float shadowMapSize;
 uniform float shadowBias;
 uniform float shadowSoftness;
 uniform int shadowEnabled;
+uniform int useCascades;
+uniform int cascadeCount;
+uniform float cascadeSplits[MAX_SHADOW_LIGHTS];
+uniform int debugCascades;
 
 // Material
 struct Material {
@@ -49,6 +53,8 @@ uniform int numLights;
 uniform vec3 lightPositions[MAX_LIGHTS];
 uniform vec3 lightColors[MAX_LIGHTS];
 uniform float lightIntensitiesExtra[MAX_LIGHTS];
+uniform int lightCastsShadow[MAX_LIGHTS];
+uniform int lightShadowMapIndex[MAX_LIGHTS];
 
 // PBR parameters
 uniform float roughness;        // 0.0 = smooth, 1.0 = rough
@@ -71,8 +77,22 @@ uniform vec3 aoGroundColor;
 
 uniform vec3 viewerPos;
 uniform vec3 lightWorldPos;  // Light position in world space for PBR calculations
+uniform sampler2D envMap;
+uniform float envMapIntensity;
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
+uniform int iblEnabled;
+uniform float iblIntensity;
 
 const float PI = 3.14159265359;
+
+vec2 equirectUV(vec3 dir) {
+    dir = normalize(dir);
+    float u = atan(dir.z, dir.x) / (2.0 * PI) + 0.5;
+    float v = acos(clamp(dir.y, -1.0, 1.0)) / PI;
+    return vec2(u, v);
+}
 
 // ============================================================================
 // PBR Helper Functions
@@ -230,6 +250,18 @@ float calculateShadowForMap(sampler2DShadow sMap, vec4 lsPos, vec3 normal, vec3 
 float calculateMultiShadow(vec3 normal, vec3 lightDir) {
     if (shadowEnabled == 0) return 1.0;
     if (numShadowLights <= 0) return 1.0;
+
+    if (useCascades != 0) {
+        float minShadow = 1.0;
+        vec4 wPos = vec4(worldPos, 1.0);
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        for (int i = 0; i < count && i < MAX_SHADOW_LIGHTS; ++i) {
+            vec4 lsPos = lightSpaceMatrices[i] * wPos;
+            float shadowVal = calculateShadowForMap(shadowMaps[i], lsPos, normal, lightDir);
+            minShadow = min(minShadow, shadowVal);
+        }
+        return minShadow;
+    }
     
     float totalShadowContrib = 0.0;
     float totalIntensity = 0.0;
@@ -318,6 +350,24 @@ void main() {
     // Calculate shadow
     vec3 mainLightPos = lightWorldPos;  // Use world-space light position
     vec3 L0 = normalize(mainLightPos - worldPos);
+    if (debugCascades != 0 && useCascades != 0) {
+        float viewDepth = -vPosition.z;
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        int cascadeIndex = count - 1;
+        for (int i = 0; i < count; ++i) {
+            if (viewDepth <= cascadeSplits[i]) {
+                cascadeIndex = i;
+                break;
+            }
+        }
+        vec3 debugColor = vec3(1.0, 0.0, 0.0);
+        if (cascadeIndex == 1) debugColor = vec3(0.0, 1.0, 0.0);
+        else if (cascadeIndex == 2) debugColor = vec3(0.0, 0.2, 1.0);
+        else if (cascadeIndex == 3) debugColor = vec3(1.0, 1.0, 0.0);
+        fragColour = vec4(debugColor, 1.0);
+        return;
+    }
+
     float shadow = calculateMultiShadow(N, L0);
     
     // Ambient occlusion
@@ -346,16 +396,40 @@ void main() {
         float dist = length(lPos - worldPos);
         float atten = lIntensity / (1.0 + 0.01 * dist + 0.001 * dist * dist);
         vec3 rad = lColor * atten;
-        
-        Lo += calculatePBR(N, V, Li, Hi, T, B, albedo, rad, shadow);
+
+        float lightShadow = 1.0;
+        int shadowIndex = lightShadowMapIndex[i];
+        if (lightCastsShadow[i] != 0 && shadowIndex >= 0 && shadowIndex < MAX_SHADOW_LIGHTS) {
+            vec4 lsPos = lightSpaceMatrices[shadowIndex] * vec4(worldPos, 1.0);
+            lightShadow = calculateShadowForMap(shadowMaps[shadowIndex], lsPos, N, Li);
+        }
+
+        Lo += calculatePBR(N, V, Li, Hi, T, B, albedo, rad, lightShadow);
     }
     
     // Ambient
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), vec3(0.04), roughness);
     vec3 ambient = light.ambient.rgb * albedo * (1.0 - F * 0.5);
+    if (iblEnabled != 0 && iblIntensity > 0.001) {
+        vec3 kS = F;
+        vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+        vec3 irradiance = texture(irradianceMap, N).rgb;
+        vec3 diffuseIBL = irradiance * albedo;
+        vec3 R = reflect(-V, N);
+        float MAX_REFLECTION_LOD = 4.0;
+        vec3 prefiltered = textureLod(prefilterMap, R, roughness * MAX_REFLECTION_LOD).rgb;
+        vec2 brdf = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+        vec3 specularIBL = prefiltered * (F * brdf.x + brdf.y);
+        ambient += (kD * diffuseIBL + specularIBL) * iblIntensity;
+    }
     
     // Final color
     vec3 color = ambient + Lo;
+    if (envMapIntensity > 0.001) {
+        vec3 R = reflect(-V, N);
+        vec3 env = texture(envMap, equirectUV(R)).rgb;
+        color += env * envMapIntensity * F;
+    }
     color *= aoTint;
     
     // Tone mapping (Reinhard)

@@ -25,6 +25,7 @@ public:
     void setMetallic(float value);
     void setRoughness(float value);
     void setTexture(const std::string& name, TextureHandle texture);
+    void setRefractionIor(float value);
     
     // Get MaterialUBO data
     const MaterialUBO& getUBOData() const { return m_uboData; }
@@ -36,6 +37,7 @@ public:
     // Get unique ID for sorting
     MaterialID getMaterialID() const { return m_materialID; }
     const std::string& getShaderName() const { return m_shaderName; }
+    float getRefractionIor() const { return m_refractionIor; }
     
     // Factory methods for common materials
     static Material* createPhong(const glm::vec3& diffuse = glm::vec3(0.8f));
@@ -54,6 +56,7 @@ private:
     MaterialID m_materialID;
     MaterialUBO m_uboData;
     std::unordered_map<std::string, TextureHandle> m_textures;
+    float m_refractionIor = 1.52f;
     
     // Generate hash from shader name for sorting
     void generateMaterialID();

@@ -1,4 +1,5 @@
 #include "rendering/RenderQueue.h"
+#include "materials/Material.h"
 #include <algorithm>
 
 namespace sandbox {
@@ -17,6 +18,13 @@ void RenderQueue::submit(IRenderable* renderable, const RenderContext& context, 
     // Add to shadow queue if enabled
     if (castsShadows && renderable->castsShadows()) {
         m_shadowQueue.emplace_back(renderable, sortKey, true);
+    }
+
+    if (!m_hasRefraction) {
+        Material* material = renderable->getMaterial();
+        if (material && material->getShaderName() == "Refraction") {
+            m_hasRefraction = true;
+        }
     }
 }
 
@@ -46,11 +54,19 @@ void RenderQueue::sortShadow() {
         });
 }
 
-void RenderQueue::executeMain(RenderContext& context) {
+void RenderQueue::executeMain(RenderContext& context, MainPassFilter filter) {
     context.currentPass = RenderContext::Pass::SCENE;
     
     for (const auto& cmd : m_mainQueue) {
         if (cmd.renderable) {
+            Material* material = cmd.renderable->getMaterial();
+            const bool isRefraction = material && material->getShaderName() == "Refraction";
+            if (filter == MainPassFilter::OmitRefraction && isRefraction) {
+                continue;
+            }
+            if (filter == MainPassFilter::OnlyRefraction && !isRefraction) {
+                continue;
+            }
             cmd.renderable->render(context);
         }
     }
@@ -69,6 +85,7 @@ void RenderQueue::executeShadow(RenderContext& context) {
 void RenderQueue::clear() {
     m_mainQueue.clear();
     m_shadowQueue.clear();
+    m_hasRefraction = false;
 }
 
 } // namespace sandbox

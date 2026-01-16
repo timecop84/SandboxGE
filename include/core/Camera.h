@@ -27,6 +27,10 @@ public:
     glm::vec3 getEye() const { return m_eye; }
     glm::vec3 getLook() const { return m_look; }
     glm::vec3 getUp() const { return m_up; }
+    float getNear() const { return m_znear; }
+    float getFar() const { return m_zfar; }
+    float getFovY() const { return m_fovy; }
+    float getAspect() const { return m_aspect; }
     void setPerspective(float fovy, float aspect, float znear, float zfar);
     void setOrthographic(float left, float right, float bottom, float top, float znear, float zfar);
     void setShape(float fovy = 45.0f, float aspect = 1.0f, float znear = 0.1f, float zfar = 1000.0f);

@@ -4,6 +4,7 @@
 in vec3 fragmentNormal;
 in vec3 worldPos;
 in vec3 viewDir;
+in vec3 vPosition;
 
 // Output
 out vec4 fragColor;
@@ -36,11 +37,33 @@ uniform mat4 shadowMatrices[4];
 uniform bool shadowsEnabled;
 uniform float shadowBias;
 uniform float shadowSoftness;
+uniform int useCascades;
+uniform int cascadeCount;
+uniform float cascadeSplits[4];
+uniform int debugCascades;
+uniform int lightCastsShadow[4];
+uniform int lightShadowMapIndex[4];
+
+uniform sampler2D envMap;
+uniform float envMapIntensity;
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
+uniform int iblEnabled;
+uniform float iblIntensity;
 
 // View position for correct view direction
 uniform vec3 viewPos;
 
 const float PI = 3.14159265359;
+const float MAX_REFLECTION_LOD = 4.0;
+
+vec2 equirectUV(vec3 dir) {
+    dir = normalize(dir);
+    float u = atan(dir.z, dir.x) / (2.0 * PI) + 0.5;
+    float v = acos(clamp(dir.y, -1.0, 1.0)) / PI;
+    return vec2(u, v);
+}
 
 // Improved shadow sampling with area light approximation
 float sampleShadow(sampler2D shadowMap, vec4 shadowCoord, float bias, float lightSize) {
@@ -137,6 +160,25 @@ float sampleShadowForLight(int lightIndex, vec3 pos, float lightSize) {
     return shadowFactor * 0.8 + 0.2;
 }
 
+float sampleShadowByIndex(int index, vec3 pos, float lightSize) {
+    if (index == 0) return sampleShadowForLight(0, pos, lightSize);
+    if (index == 1) return sampleShadowForLight(1, pos, lightSize);
+    if (index == 2) return sampleShadowForLight(2, pos, lightSize);
+    if (index == 3) return sampleShadowForLight(3, pos, lightSize);
+    return 1.0;
+}
+
+float sampleCascadeShadow(vec3 pos, float lightSize) {
+    float minShadow = 1.0;
+    int count = cascadeCount > 0 ? cascadeCount : 1;
+    if (count > 4) count = 4;
+    for (int i = 0; i < count; ++i) {
+        float shadow = sampleShadowByIndex(i, pos, lightSize);
+        minShadow = min(minShadow, shadow);
+    }
+    return minShadow;
+}
+
 void main() {
     vec3 N = normalize(fragmentNormal);
     vec3 V = normalize(viewPos - worldPos);
@@ -159,6 +201,25 @@ void main() {
     
     // Accumulate lighting from all lights with per-light shadows
     vec3 Lo = vec3(0.0);
+
+    if (debugCascades != 0 && useCascades != 0) {
+        float viewDepth = -vPosition.z;
+        int count = cascadeCount > 0 ? cascadeCount : 1;
+        if (count > 4) count = 4;
+        int cascadeIndex = count - 1;
+        for (int i = 0; i < count; ++i) {
+            if (viewDepth <= cascadeSplits[i]) {
+                cascadeIndex = i;
+                break;
+            }
+        }
+        vec3 debugColor = vec3(1.0, 0.0, 0.0);
+        if (cascadeIndex == 1) debugColor = vec3(0.0, 1.0, 0.0);
+        else if (cascadeIndex == 2) debugColor = vec3(0.0, 0.2, 1.0);
+        else if (cascadeIndex == 3) debugColor = vec3(1.0, 1.0, 0.0);
+        fragColor = vec4(debugColor, 1.0);
+        return;
+    }
     
     for (int i = 0; i < lightCountN && i < 4; ++i) {
         vec3 lightPos = lightPositions[i].xyz;
@@ -175,8 +236,14 @@ void main() {
         // Calculate shadow with area light approximation
         float lightSize = 0.5 + lightIntensity * 0.5;
         float shadow = 1.0;
-        if (shadowsEnabled && lightColors[i].a > 0.5) {
-            float shadowFactor = sampleShadowForLight(i, worldPos, lightSize);
+        if (shadowsEnabled && lightCastsShadow[i] != 0) {
+            float shadowFactor = 1.0;
+            if (i == 0 && useCascades != 0) {
+                shadowFactor = sampleCascadeShadow(worldPos, lightSize);
+            } else {
+                int mapIndex = lightShadowMapIndex[i];
+                shadowFactor = sampleShadowByIndex(mapIndex, worldPos, lightSize);
+            }
             shadow = shadowFactor;
             
             // Ambient bounce: Even in shadow, light scatters (fake GI)
@@ -206,6 +273,29 @@ void main() {
     }
     
     vec3 color = ambient + Lo;
+
+    if (iblEnabled != 0) {
+        vec3 F = fresnelSchlick(max(dot(N, V), 0.0), F0);
+        vec3 kS = F;
+        vec3 kD = vec3(1.0) - kS;
+        kD *= 1.0 - metal;
+
+        vec3 irradiance = texture(irradianceMap, N).rgb;
+        vec3 diffuseIBL = irradiance * albedo;
+
+        vec3 R = reflect(-V, N);
+        vec3 prefiltered = textureLod(prefilterMap, R, rough * MAX_REFLECTION_LOD).rgb;
+        vec2 brdf = texture(brdfLUT, vec2(max(dot(N, V), 0.0), rough)).rg;
+        vec3 specularIBL = prefiltered * (F * brdf.x + brdf.y);
+
+        color += (kD * diffuseIBL + specularIBL) * iblIntensity;
+
+        if (envMapIntensity > 0.001) {
+            vec2 envUV = equirectUV(R);
+            vec3 env = texture(envMap, envUV).rgb;
+            color += env * envMapIntensity * F;
+        }
+    }
     
     // Tone mapping (Reinhard)
     color = color / (color + vec3(1.0));

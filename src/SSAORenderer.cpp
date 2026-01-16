@@ -460,5 +460,9 @@ bool isEnabled() { return s_enabled; }
 float getRadius() { return s_radius; }
 float getBias() { return s_bias; }
 float getIntensity() { return s_intensity; }
+unsigned int getSceneColorTexture() { return toGlHandle(s_sceneColorTex.get()); }
+unsigned int getSceneFramebuffer() { return s_sceneFBO; }
+int getWidth() { return s_width; }
+int getHeight() { return s_height; }
 
 } // namespace sandbox::SSAO

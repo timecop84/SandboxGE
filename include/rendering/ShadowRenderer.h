@@ -20,6 +20,9 @@ void cleanup();
 void setDevice(rhi::Device* device);
 
 void beginShadowPass(int lightIndex, Light* light, const glm::vec3& sceneCenter, float sceneRadius);
+/// Begin shadow pass for a cascade slice derived from camera frustum
+void beginShadowCascade(int cascadeIndex, Light* light, Camera* camera, float splitNear, float splitFar);
+
 void endShadowPass();
 
 glm::mat4 getLightSpaceMatrix(int lightIndex);

@@ -9,6 +9,7 @@
 #include <core/Light.h>
 #include <core/Colour.h>
 #include <core/ResourceManager.h>
+#include <rhi/Device.h>
 #include <utils/ShaderLib.h>
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -16,6 +17,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <string>
+#include <cmath>
 
 namespace sandbox {
 
@@ -31,6 +33,38 @@ static std::string getEnvString(const char* name) {
     const char* value = std::getenv(name);
     return value ? std::string(value) : std::string{};
 #endif
+}
+
+static GLuint toGlHandle(const rhi::Texture* tex) {
+    if (!tex) return 0;
+    return static_cast<GLuint>(tex->nativeHandle());
+}
+
+static std::array<float, 4> computeCascadeSplits(const Camera* camera, const RenderSettings& settings) {
+    std::array<float, 4> splits{};
+    if (!camera) {
+        return splits;
+    }
+    const float nearPlane = camera->getNear();
+    const float farPlane = std::min(camera->getFar(), settings.cascadeMaxDistance);
+    const float clipRange = farPlane - nearPlane;
+    const float minZ = nearPlane;
+    const float maxZ = nearPlane + clipRange;
+    const float range = maxZ - minZ;
+    const float ratio = maxZ / minZ;
+    const int count = std::max(1, std::min(settings.cascadeCount, 4));
+
+    for (int i = 0; i < count; ++i) {
+        float p = (i + 1) / static_cast<float>(count);
+        float log = minZ * std::pow(ratio, p);
+        float uniform = minZ + range * p;
+        float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
+        splits[i] = d;
+    }
+    for (int i = count; i < 4; ++i) {
+        splits[i] = maxZ;
+    }
+    return splits;
 }
 
 UnifiedRenderer::UnifiedRenderer() {
@@ -69,6 +103,11 @@ bool UnifiedRenderer::initialize(int width, int height) {
     
     m_context.viewportWidth = width;
     m_context.viewportHeight = height;
+    m_refractionWidth = width;
+    m_refractionHeight = height;
+    if (auto* device = ResourceManager::instance()->getDevice()) {
+        m_refractionSource = device->createTexture(width, height, rhi::TextureFormat::RGB16F);
+    }
     
     return true;
 }
@@ -77,6 +116,15 @@ void UnifiedRenderer::resize(int width, int height) {
     m_context.viewportWidth = width;
     m_context.viewportHeight = height;
     SSAO::resize(width, height);
+    if (width != m_refractionWidth || height != m_refractionHeight) {
+        m_refractionWidth = width;
+        m_refractionHeight = height;
+        if (auto* device = ResourceManager::instance()->getDevice()) {
+            m_refractionSource = device->createTexture(width, height, rhi::TextureFormat::RGB16F);
+        } else {
+            m_refractionSource.reset();
+        }
+    }
 }
 
 void UnifiedRenderer::setShaderRoot(const std::string& rootDir) {
@@ -120,6 +168,22 @@ void UnifiedRenderer::renderFrame(const RenderSettings& settings) {
     setupLighting(settings);
     
     Shadow::setEnabled(settings.shadowEnabled);
+
+    m_context.useCascades = settings.useCascadedShadows;
+    m_context.debugCascades = settings.debugCascades;
+    m_context.cascadeCount = settings.useCascadedShadows ? std::max(1, std::min(settings.cascadeCount, 4)) : 0;
+    m_context.cascadeSplits = settings.useCascadedShadows ? computeCascadeSplits(m_context.camera, settings)
+                                                          : std::array<float, 4>{};
+    m_context.envMapTextureId = settings.envMapTextureId;
+    m_context.envMapIntensity = settings.envMapIntensity;
+    m_context.iblEnabled = settings.iblEnabled;
+    m_context.iblIntensity = settings.iblIntensity;
+    m_context.iblIrradianceMap = settings.iblIrradianceMap;
+    m_context.iblPrefilterMap = settings.iblPrefilterMap;
+    m_context.iblBrdfLut = settings.iblBrdfLut;
+    m_context.numShadowMaps = 0;
+    m_context.lightCastsShadow = {0, 0, 0, 0};
+    m_context.lightShadowMapIndex = {-1, -1, -1, -1};
     
     if (settings.shadowEnabled) {
         renderShadowPass(settings);
@@ -153,6 +217,9 @@ void UnifiedRenderer::setupLighting(const RenderSettings& settings) {
     m_lightSlots[0].color = lightDiff;
     m_lightSlots[0].castsShadow = true;
     m_lightSlotCount = 1;
+
+    m_context.mainLightPosition = lightPos;
+    m_context.mainLightColor = lightDiff;
     
     for (size_t i = 0; i < settings.lights.size() && lighting.count < 4; ++i) {
         const auto& extraLight = settings.lights[i];
@@ -191,15 +258,46 @@ void UnifiedRenderer::renderShadowPass(const RenderSettings& settings) {
     Shadow::setBias(settings.shadowBias);
     Shadow::setSoftness(settings.shadowSoftness);
 
-    // Shadow maps are indexed to match LightingUBO slots (0..3)
-    for (int li = 0; li < m_lightSlotCount && li < Shadow::MAX_SHADOW_LIGHTS; ++li) {
+    m_context.numShadowMaps = 0;
+    m_context.lightCastsShadow = {0, 0, 0, 0};
+    m_context.lightShadowMapIndex = {-1, -1, -1, -1};
+
+    int shadowMapIndex = 0;
+
+    if (settings.useCascadedShadows && m_lightSlotCount > 0 && m_lightSlots[0].castsShadow) {
+        const auto& slot = m_lightSlots[0];
+        Light light(slot.position, Colour(slot.color.r, slot.color.g, slot.color.b, 1.0f));
+        const int cascadeCount = std::max(1, std::min(settings.cascadeCount, Shadow::MAX_SHADOW_LIGHTS));
+
+        float splitNear = m_context.camera ? m_context.camera->getNear() : 0.1f;
+        for (int c = 0; c < cascadeCount; ++c) {
+            float splitFar = m_context.cascadeSplits[c];
+            Shadow::beginShadowCascade(c, &light, m_context.camera, splitNear, splitFar);
+            m_queue.executeShadow(m_context);
+            Shadow::endShadowPass();
+            splitNear = splitFar;
+        }
+
+        m_context.lightCastsShadow[0] = 1;
+        m_context.lightShadowMapIndex[0] = 0;
+        shadowMapIndex = cascadeCount;
+        m_context.numShadowMaps = cascadeCount;
+    }
+
+    for (int li = 0; li < m_lightSlotCount && shadowMapIndex < Shadow::MAX_SHADOW_LIGHTS; ++li) {
+        if (li == 0 && settings.useCascadedShadows) continue;
         if (!m_lightSlots[li].castsShadow) continue;
 
         const auto& slot = m_lightSlots[li];
         Light light(slot.position, Colour(slot.color.r, slot.color.g, slot.color.b, 1.0f));
-        Shadow::beginShadowPass(li, &light, sceneCenter, sceneRadius);
+        Shadow::beginShadowPass(shadowMapIndex, &light, sceneCenter, sceneRadius);
         m_queue.executeShadow(m_context);
         Shadow::endShadowPass();
+
+        m_context.lightCastsShadow[li] = 1;
+        m_context.lightShadowMapIndex[li] = shadowMapIndex;
+        shadowMapIndex++;
+        m_context.numShadowMaps = shadowMapIndex;
     }
     
     m_stats.drawCalls += m_queue.getShadowQueueSize();
@@ -218,8 +316,7 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
     glEnable(GL_DEPTH_TEST);
     
     for (int i = 0; i < 4; ++i) {
-        const bool castsShadow = (i < m_lightSlotCount) ? m_lightSlots[i].castsShadow : false;
-        m_context.shadowMatrices[i] = castsShadow ? Shadow::getLightSpaceMatrix(i) : glm::mat4(1.0f);
+        m_context.shadowMatrices[i] = Shadow::getLightSpaceMatrix(i);
     }
     
     m_context.viewPosition = m_context.camera ? m_context.camera->getEye() : glm::vec3(0.0f);
@@ -230,7 +327,23 @@ void UnifiedRenderer::renderScenePass(const RenderSettings& settings) {
         Shadow::bindShadowMap(i, 8 + i);  // Use high texture units to avoid conflicts
     }
     
-    m_queue.executeMain(m_context);
+    m_context.refractionSourceTexture = 0;
+
+    m_queue.executeMain(m_context, RenderQueue::MainPassFilter::OmitRefraction);
+
+    if (m_queue.hasRefraction()) {
+        GLuint destTex = toGlHandle(m_refractionSource.get());
+        if (destTex) {
+            GLenum readBuffer = SSAO::isEnabled() ? GL_COLOR_ATTACHMENT0 : GL_BACK;
+            glReadBuffer(readBuffer);
+            glBindTexture(GL_TEXTURE_2D, destTex);
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                                m_context.viewportWidth, m_context.viewportHeight);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            m_context.refractionSourceTexture = destTex;
+        }
+        m_queue.executeMain(m_context, RenderQueue::MainPassFilter::OnlyRefraction);
+    }
     
     SSAO::endScenePass();
     

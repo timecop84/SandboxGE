@@ -5,6 +5,8 @@ out vec4 fragColour;
 in vec2 fragUV;
 in vec4 fragPosLightSpace;
 in vec3 worldPos;
+/// @brief View-space position for cascade selection
+in vec3 vPosition;
 
 // Multi-shadow support
 const int MAX_SHADOW_LIGHTS = 4;
@@ -12,6 +14,10 @@ uniform sampler2DShadow shadowMaps[MAX_SHADOW_LIGHTS];
 uniform mat4 lightSpaceMatrices[MAX_SHADOW_LIGHTS];
 uniform float lightIntensities[MAX_SHADOW_LIGHTS];
 uniform int numShadowLights;
+uniform int useCascades;
+uniform int cascadeCount;
+uniform float cascadeSplits[MAX_SHADOW_LIGHTS];
+uniform int debugCascades;
 
 // Extra light array (no shadows)
 const int MAX_LIGHTS = 8;
@@ -19,6 +25,8 @@ uniform int numLights;
 uniform vec3 lightPositions[MAX_LIGHTS];
 uniform vec3 lightColors[MAX_LIGHTS];
 uniform float lightIntensitiesExtra[MAX_LIGHTS];
+uniform int lightCastsShadow[MAX_LIGHTS];
+uniform int lightShadowMapIndex[MAX_LIGHTS];
 
 // Shadow parameters
 uniform sampler2DShadow shadowMap;
@@ -106,6 +114,18 @@ float calculateMultiShadow(vec3 normal, vec3 lightDir)
 {
     if (shadowEnabled == 0) return 1.0;
     if (numShadowLights <= 0) return calculateShadow(fragPosLightSpace, normal, lightDir);
+
+    if (useCascades != 0) {
+        float minShadow = 1.0;
+        vec4 wPos = vec4(worldPos, 1.0);
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        for (int i = 0; i < count && i < MAX_SHADOW_LIGHTS; ++i) {
+            vec4 lsPos = lightSpaceMatrices[i] * wPos;
+            float shadowVal = calculateShadowForMap(shadowMaps[i], lsPos, normal, lightDir);
+            minShadow = min(minShadow, shadowVal);
+        }
+        return minShadow;
+    }
     
     float totalShadowContrib = 0.0;
     float totalIntensity = 0.0;
@@ -173,7 +193,6 @@ in vec3 lightDir;
 // out the blinn half vector
 in vec3 halfVector;
 in vec3 eyeDirection;
-in vec3 vPosition;
 
 
 // Ambient occlusion approximation
@@ -240,7 +259,13 @@ vec3 extraLights(vec3 N, vec3 V)
         float spec = pow(max(dot(N, H), 0.0), material.shininess);
         float intensity = lightIntensitiesExtra[i];
         vec3 color = lightColors[i];
-        accum += (material.diffuse.rgb * color * diff + material.specular.rgb * color * spec) * intensity;
+        float shadow = 1.0;
+        int shadowIndex = lightShadowMapIndex[i];
+        if (lightCastsShadow[i] != 0 && shadowIndex >= 0 && shadowIndex < MAX_SHADOW_LIGHTS) {
+            vec4 lsPos = lightSpaceMatrices[shadowIndex] * vec4(worldPos, 1.0);
+            shadow = calculateShadowForMap(shadowMaps[shadowIndex], lsPos, N, L);
+        }
+        accum += (material.diffuse.rgb * color * diff + material.specular.rgb * color * spec) * intensity * shadow;
     }
     return accum;
 }
@@ -253,6 +278,24 @@ void main ()
     vec3 L = normalize(lightDir);
     float ao = computeAO(N, V);
     
+    if (debugCascades != 0 && useCascades != 0) {
+        float viewDepth = -vPosition.z;
+        int count = cascadeCount > 0 ? cascadeCount : numShadowLights;
+        int cascadeIndex = count - 1;
+        for (int i = 0; i < count; ++i) {
+            if (viewDepth <= cascadeSplits[i]) {
+                cascadeIndex = i;
+                break;
+            }
+        }
+        vec3 debugColor = vec3(1.0, 0.0, 0.0);
+        if (cascadeIndex == 1) debugColor = vec3(0.0, 1.0, 0.0);
+        else if (cascadeIndex == 2) debugColor = vec3(0.0, 0.2, 1.0);
+        else if (cascadeIndex == 3) debugColor = vec3(1.0, 1.0, 0.0);
+        fragColour = vec4(debugColor, 1.0);
+        return;
+    }
+
     // Calculate shadow from all shadow-casting lights
     float shadow = calculateMultiShadow(N, L);
     

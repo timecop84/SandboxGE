@@ -27,8 +27,14 @@ public:
     void sortMain();
     void sortShadow();
 
+    enum class MainPassFilter {
+        All,
+        OmitRefraction,
+        OnlyRefraction
+    };
+
     // Execute main queue rendering.
-    void executeMain(RenderContext& context);
+    void executeMain(RenderContext& context, MainPassFilter filter = MainPassFilter::All);
 
     // Execute shadow queue rendering.
     void executeShadow(RenderContext& context);
@@ -39,10 +45,13 @@ public:
     // Queue sizes (mostly for debugging).
     size_t getMainQueueSize() const { return m_mainQueue.size(); }
     size_t getShadowQueueSize() const { return m_shadowQueue.size(); }
+
+    bool hasRefraction() const { return m_hasRefraction; }
     
 private:
     std::vector<RenderCommand> m_mainQueue;
     std::vector<RenderCommand> m_shadowQueue;
+    bool m_hasRefraction = false;
 };
 
 } // namespace sandbox

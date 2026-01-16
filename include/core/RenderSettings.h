@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 namespace sandbox {
@@ -67,6 +68,11 @@ struct RenderSettings {
     bool shadowEnabled = true;
     float shadowBias = 0.005f;
     float shadowSoftness = 2.0f;
+    bool useCascadedShadows = true;
+    bool debugCascades = false;
+    int cascadeCount = 4;
+    float cascadeSplitLambda = 0.6f;
+    float cascadeMaxDistance = 120.0f;
 
     // SSAO
     bool ssaoEnabled = true;
@@ -79,6 +85,20 @@ struct RenderSettings {
     float lightAmbient[3] = {0.4f, 0.4f, 0.4f};
     float lightDiffuse[3] = {1.2f, 1.2f, 1.2f};
     float lightSpecular[3] = {1.1f, 1.1f, 1.1f};
+
+    // Sphere material overrides
+    std::string sphereShaderName = "Phong";
+    float sphereRefractionIor = 1.52f;
+    unsigned int sphereTextureId = 0;
+
+    // Environment map
+    unsigned int envMapTextureId = 0;
+    float envMapIntensity = 0.35f;
+    bool iblEnabled = true;
+    float iblIntensity = 1.0f;
+    unsigned int iblIrradianceMap = 0;
+    unsigned int iblPrefilterMap = 0;
+    unsigned int iblBrdfLut = 0;
 
     // Additional lights
     std::vector<ExtraLight> lights;

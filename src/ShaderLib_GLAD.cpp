@@ -402,6 +402,30 @@ ShaderLib::ProgramWrapper* ShaderLib::operator[](const std::string& name) {
         
         return m_wrappers["SilkPBR"].get();
     }
+
+    // Auto-create Refraction shader for per-mesh effects
+    if (name == "Refraction") {
+        createShaderProgram("Refraction");
+
+        attachShader("RefractionVertex", VERTEX);
+        loadShaderSource("RefractionVertex", "shaders/Refraction.vs");
+        compileShader("RefractionVertex");
+
+        attachShader("RefractionFragment", FRAGMENT);
+        loadShaderSource("RefractionFragment", "shaders/Refraction.fs");
+        compileShader("RefractionFragment");
+
+        attachShaderToProgram("Refraction", "RefractionVertex");
+        attachShaderToProgram("Refraction", "RefractionFragment");
+
+        bindAttribute("Refraction", 0, "aPos");
+        bindAttribute("Refraction", 1, "aTexCoords");
+        bindAttribute("Refraction", 2, "aNormal");
+
+        linkProgramObject("Refraction");
+
+        return m_wrappers["Refraction"].get();
+    }
     
     // Auto-create PhongInstanced shader for instanced particle rendering
     if (name == "PhongInstanced") {

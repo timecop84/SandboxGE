@@ -8,10 +8,14 @@
 #include <glm/vec3.hpp>
 #include <array>
 #include <string>
+#include <memory>
 
 namespace sandbox {
 
 class IRenderable;
+namespace rhi {
+class Texture;
+}
 
 // Rendering pipeline using Material system and RenderQueue
 class UnifiedRenderer {
@@ -43,6 +47,9 @@ private:
     InstanceBatcher m_batcher;
     Stats m_stats;
     bool m_frameActive = false;
+    std::unique_ptr<rhi::Texture> m_refractionSource;
+    int m_refractionWidth = 0;
+    int m_refractionHeight = 0;
     
     // Rendering passes
     void renderShadowPass(const RenderSettings& settings);

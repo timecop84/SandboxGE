@@ -85,9 +85,15 @@ set(SANDBOX_GE_SOURCES
     src/ShaderPathResolver.cpp
     src/LightingHelper.cpp
     src/GeometryFactory.cpp
+    src/EnvMapLoader.cpp
+    src/IBL.cpp
     src/rhi/DeviceGL.cpp
     
     ${SANDBOX_GE_GLAD_DIR}/src/gl.c
+    external/tinyexr/tinyexr.cc
+    external/tinyexr/miniz.c
+    external/tinyexr/miniz_tdef.c
+    external/tinyexr/miniz_tinfl.c
 )
 
 add_library(SandboxGE STATIC ${SANDBOX_GE_SOURCES})
@@ -107,6 +113,7 @@ target_include_directories(SandboxGE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${SANDBOX_GE_GLAD_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/tinyexr
 )
 if(SANDBOX_GE_EXTRA_INCLUDE_DIRS)
     target_include_directories(SandboxGE PUBLIC ${SANDBOX_GE_EXTRA_INCLUDE_DIRS})
