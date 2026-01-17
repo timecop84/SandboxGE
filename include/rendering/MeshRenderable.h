@@ -25,11 +25,18 @@ public:
     
     // Update material
     void setMaterial(Material* material) { m_material = material; }
+
+    // Update geometry
+    void setGeometry(GeometryHandle geometry) { m_geometry = geometry; }
+
+    // Toggle wireframe rendering
+    void setWireframe(bool wireframe) { m_wireframe = wireframe; }
     
 private:
     GeometryHandle m_geometry;
     Material* m_material;
     glm::mat4 m_transform;
+    bool m_wireframe = false;
     
     void renderInternal(const RenderContext& context, bool shadowPass);
 };

@@ -49,4 +49,10 @@ GLuint loadEnvironmentEXR(const std::string& path, int* width, int* height) {
     return tex;
 }
 
+void destroyEnvironmentTexture(GLuint texture) {
+    if (texture != 0) {
+        glDeleteTextures(1, &texture);
+    }
+}
+
 } // namespace gfx

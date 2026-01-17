@@ -77,6 +77,56 @@ std::shared_ptr<Geometry> GeometryFactory::createGeometry(const std::string& nam
     return geometry;
 }
 
+std::shared_ptr<Geometry> GeometryFactory::updateGeometry(const std::string& name,
+                                                         const std::vector<float>& vertices,
+                                                         const std::vector<unsigned int>& indices) {
+    auto geometry = getGeometry(name);
+    if (!geometry) {
+        return createGeometry(name, vertices, indices);
+    }
+
+    if (geometry->VAO == 0) {
+        createVAO(geometry.get(), vertices, indices);
+        return geometry;
+    }
+
+    glBindVertexArray(geometry->VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, geometry->VBO);
+
+    const size_t vertexBytes = vertices.size() * sizeof(float);
+    if (vertexBytes > geometry->vertexCapacityBytes) {
+        glBufferData(GL_ARRAY_BUFFER, vertexBytes, vertices.data(), GL_DYNAMIC_DRAW);
+        geometry->vertexCapacityBytes = vertexBytes;
+    } else if (!vertices.empty()) {
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertexBytes, vertices.data());
+    }
+
+    if (!indices.empty()) {
+        if (geometry->EBO == 0) {
+            glGenBuffers(1, &geometry->EBO);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometry->EBO);
+        } else {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometry->EBO);
+        }
+
+        const size_t indexBytes = indices.size() * sizeof(unsigned int);
+        if (indexBytes > geometry->indexCapacityBytes) {
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBytes, indices.data(), GL_DYNAMIC_DRAW);
+            geometry->indexCapacityBytes = indexBytes;
+        } else {
+            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, indexBytes, indices.data());
+        }
+        geometry->indexCount = indices.size();
+    } else {
+        geometry->indexCount = 0;
+    }
+
+    geometry->vertexCount = vertices.size() / 8;
+
+    glBindVertexArray(0);
+    return geometry;
+}
+
 std::shared_ptr<Geometry> GeometryFactory::getGeometry(const std::string& name) {
     auto it = m_geometries.find(name);
     if (it != m_geometries.end()) {
@@ -380,6 +430,7 @@ void GeometryFactory::createVAO(Geometry* geometry, const std::vector<float>& ve
     // Bind and upload vertex data
     glBindBuffer(GL_ARRAY_BUFFER, geometry->VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    geometry->vertexCapacityBytes = vertices.size() * sizeof(float);
     
     // Set vertex attributes (position at 0, uv at 1, normal at 2)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
@@ -395,6 +446,7 @@ void GeometryFactory::createVAO(Geometry* geometry, const std::vector<float>& ve
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometry->EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
         geometry->indexCount = indices.size();
+        geometry->indexCapacityBytes = indices.size() * sizeof(unsigned int);
     }
     
     geometry->vertexCount = vertices.size() / 8; // 8 floats per vertex (pos + uv + normal)

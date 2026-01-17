@@ -1,4 +1,5 @@
 #include "rendering/MeshRenderable.h"
+#include <glad/gl.h>
 #include "rendering/UBOManager.h"
 #include "rendering/UBOStructures.h"
 #include <core/Camera.h>
@@ -58,7 +59,13 @@ void MeshRenderable::renderInternal(const RenderContext& context, bool shadowPas
     
     // Render geometry
     if (m_geometry) {
+        if (m_wireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
         m_geometry->render();
+        if (m_wireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
     }
     
     // Unbind material

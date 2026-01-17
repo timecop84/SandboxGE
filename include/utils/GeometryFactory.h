@@ -14,6 +14,8 @@ struct Geometry {
     unsigned int EBO = 0;
     size_t indexCount = 0;
     size_t vertexCount = 0;
+    size_t vertexCapacityBytes = 0;
+    size_t indexCapacityBytes = 0;
     
     ~Geometry();
     void bind() const;
@@ -27,6 +29,11 @@ public:
     
     // Create geometries with caching
     std::shared_ptr<Geometry> createGeometry(const std::string& name,
+                                            const std::vector<float>& vertices,
+                                            const std::vector<unsigned int>& indices);
+
+    // Update or create geometry (dynamic data)
+    std::shared_ptr<Geometry> updateGeometry(const std::string& name,
                                             const std::vector<float>& vertices,
                                             const std::vector<unsigned int>& indices);
     
