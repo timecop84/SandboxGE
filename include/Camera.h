@@ -36,6 +36,7 @@ public:
     void setOrthographic(float left, float right, float bottom, float top, float znear, float zfar);
     void setShape(float fovy = 45.0f, float aspect = 1.0f, float znear = 0.1f, float zfar = 1000.0f);
     void setShape(float fov, float aspect, float near, float far, int projType);
+    float getAspect() const { return m_aspect; }
 private:
     void updateViewMatrix();
     void updateProjectionMatrix();
