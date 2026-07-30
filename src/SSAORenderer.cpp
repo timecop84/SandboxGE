@@ -76,6 +76,9 @@ namespace {
         GLuint program = glCreateProgram();
         glAttachShader(program, vs);
         glAttachShader(program, fs);
+        // Keep fullscreen quad attribute bindings deterministic across drivers.
+        glBindAttribLocation(program, 0, "inVert");
+        glBindAttribLocation(program, 1, "inUV");
         glLinkProgram(program);
         
         GLint success;
