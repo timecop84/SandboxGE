@@ -70,6 +70,11 @@ namespace {
         GLuint program = glCreateProgram();
         glAttachShader(program, vs);
         glAttachShader(program, fs);
+        // Match fullscreen quad VAO layout (0 = position, 1 = UV).
+        // Without this the driver may assign different locations and the
+        // composite pass renders garbage.
+        glBindAttribLocation(program, 0, "inVert");
+        glBindAttribLocation(program, 1, "inUV");
         glLinkProgram(program);
         
         GLint success;
