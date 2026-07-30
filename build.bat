@@ -23,14 +23,6 @@ set "DEMO_FLAG=%SANDBOX_GE_BUILD_DEMO%"
 if "!DEMO_FLAG!"=="" set "DEMO_FLAG=ON"
 
 set "EXTRA_INC="
-if not "%SANDBOX_GE_EXTRA_INCLUDE_DIRS%"=="" (
-    set "EXTRA_INC=-DSANDBOX_GE_EXTRA_INCLUDE_DIRS=%SANDBOX_GE_EXTRA_INCLUDE_DIRS%"
-) else (
-    rem Auto-detect from sibling cloth_solver project
-    if exist "..\cloth_solver\modules\math\include" (
-        set "EXTRA_INC=-DSANDBOX_GE_EXTRA_INCLUDE_DIRS=..\cloth_solver\modules\math\include"
-    )
-)
 
 set "EXTRA_CMAKE_ARGS=%SANDBOX_GE_CMAKE_ARGS%"
 
