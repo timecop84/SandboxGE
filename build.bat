@@ -12,8 +12,11 @@ set "CONFIG=Release"
 set "DEMO_FLAG=ON"
 
 set "EXTRA_INC="
-if exist "..\cloth_solver\modules\math\include" (
-    set "EXTRA_INC=-DSANDBOX_GE_EXTRA_INCLUDE_DIRS=..\cloth_solver\modules\math\include"
+
+rem Ensure submodules are initialized (MathLib, glfw, imgui)
+git submodule update --init --recursive
+if errorlevel 1 (
+    echo [WARN] git submodule update failed, continuing anyway...
 )
 
 set "TARGETS=SandboxGE UnifiedDemo"

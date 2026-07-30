@@ -1,3 +1,9 @@
 [submodule "external/cloth_math"]
 	path = external/MathLib
 	url = https://github.com/timecop84/MathLib.git
+[submodule "external/glfw"]
+	path = external/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/ocornut/imgui.git
